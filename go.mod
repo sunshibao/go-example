@@ -10,6 +10,7 @@ require (
 	github.com/jinzhu/gorm v1.9.16
 	github.com/jmoiron/sqlx v1.3.4
 	github.com/mohuishou/go-design-pattern v1.0.0
+	github.com/pkg/profile v1.6.0 // indirect
 	github.com/stretchr/testify v1.7.0
 	github.com/sunshibao/go-utils v0.0.0-20210811040601-17f124817d91
 	gopkg.in/mgo.v2 v2.0.0-20190816093944-a6b53ec6cb22
