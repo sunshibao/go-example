@@ -1,4 +1,4 @@
-package outGoroutine
+package timeoutGoroutine
 
 import (
 	"runtime"
