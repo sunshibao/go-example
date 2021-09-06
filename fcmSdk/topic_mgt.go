@@ -26,7 +26,7 @@ type TopicManagementResponse struct {
 	Errors       []*ErrorInfo
 }
 
-func newTopicManagementResponse(resp *iidResponse) *TopicManagementResponse {
+func NewTopicManagementResponse(resp *IidResponse) *TopicManagementResponse {
 	tmr := &TopicManagementResponse{}
 	for idx, res := range resp.Results {
 		if len(res) == 0 {
@@ -43,26 +43,26 @@ func newTopicManagementResponse(resp *iidResponse) *TopicManagementResponse {
 	return tmr
 }
 
-type iidClient struct {
-	iidEndpoint string
-	httpClient  *internal.HTTPClient
+type IidClient struct {
+	IidEndpoint string
+	HttpClient  *internal.HTTPClient
 }
 
-func newIIDClient(hc *http.Client) *iidClient {
+func NewIIDClient(hc *http.Client) *IidClient {
 	client := internal.WithDefaultRetryConfig(hc)
 	client.CreateErrFn = handleIIDError
 	client.Opts = []internal.HTTPOption{internal.WithHeader("access_token_auth", "true")}
-	return &iidClient{
-		iidEndpoint: iidEndpoint,
-		httpClient:  client,
+	return &IidClient{
+		IidEndpoint: iidEndpoint,
+		HttpClient:  client,
 	}
 }
 
 // SubscribeToTopic subscribes a list of registration tokens to a topic.
 //
 // The tokens list must not be empty, and have at most 1000 tokens.
-func (c *iidClient) SubscribeToTopic(ctx context.Context, tokens []string, topic string) (*TopicManagementResponse, error) {
-	req := &iidRequest{
+func (c *IidClient) SubscribeToTopic(ctx context.Context, tokens []string, topic string) (*TopicManagementResponse, error) {
+	req := &IidRequest{
 		Topic:  topic,
 		Tokens: tokens,
 		op:     iidSubscribe,
@@ -73,8 +73,8 @@ func (c *iidClient) SubscribeToTopic(ctx context.Context, tokens []string, topic
 // UnsubscribeFromTopic unsubscribes a list of registration tokens from a topic.
 //
 // The tokens list must not be empty, and have at most 1000 tokens.
-func (c *iidClient) UnsubscribeFromTopic(ctx context.Context, tokens []string, topic string) (*TopicManagementResponse, error) {
-	req := &iidRequest{
+func (c *IidClient) UnsubscribeFromTopic(ctx context.Context, tokens []string, topic string) (*TopicManagementResponse, error) {
+	req := &IidRequest{
 		Topic:  topic,
 		Tokens: tokens,
 		op:     iidUnsubscribe,
@@ -82,13 +82,13 @@ func (c *iidClient) UnsubscribeFromTopic(ctx context.Context, tokens []string, t
 	return c.makeTopicManagementRequest(ctx, req)
 }
 
-type iidRequest struct {
+type IidRequest struct {
 	Topic  string   `json:"to"`
 	Tokens []string `json:"registration_tokens"`
 	op     string
 }
 
-type iidResponse struct {
+type IidResponse struct {
 	Results []map[string]interface{} `json:"results"`
 }
 
@@ -96,7 +96,7 @@ type iidErrorResponse struct {
 	Error string `json:"error"`
 }
 
-func (c *iidClient) makeTopicManagementRequest(ctx context.Context, req *iidRequest) (*TopicManagementResponse, error) {
+func (c *IidClient) makeTopicManagementRequest(ctx context.Context, req *IidRequest) (*TopicManagementResponse, error) {
 	if len(req.Tokens) == 0 {
 		return nil, fmt.Errorf("no tokens specified")
 	}
@@ -122,15 +122,15 @@ func (c *iidClient) makeTopicManagementRequest(ctx context.Context, req *iidRequ
 
 	request := &internal.Request{
 		Method: http.MethodPost,
-		URL:    fmt.Sprintf("%s:%s", c.iidEndpoint, req.op),
+		URL:    fmt.Sprintf("%s:%s", c.IidEndpoint, req.op),
 		Body:   internal.NewJSONEntity(req),
 	}
-	var result iidResponse
-	if _, err := c.httpClient.DoAndUnmarshal(ctx, request, &result); err != nil {
+	var result IidResponse
+	if _, err := c.HttpClient.DoAndUnmarshal(ctx, request, &result); err != nil {
 		return nil, err
 	}
 
-	return newTopicManagementResponse(&result), nil
+	return NewTopicManagementResponse(&result), nil
 }
 
 func handleIIDError(resp *internal.Response) error {

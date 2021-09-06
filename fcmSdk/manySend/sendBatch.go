@@ -24,21 +24,35 @@ func main() {
 	ctx := context.Background()
 	client, err := fcmSdk.NewClient(ctx, testMessagingConfig)
 	if err != nil {
-		fmt.Printf(err.Error())
+		fmt.Errorf(err.Error())
 	}
-	client.FcmEndpoint = fcmSdk.DefaultMessagingEndpoint
-	topicOnly := &fcmSdk.Message{
-		Topic: "test-topic",
-		Data: map[string]string{
-			"k1": "v1",
-			"k2": "v2",
+	client.BatchEndpoint = fcmSdk.DefaultBatchEndpoint
+
+	var testMessages = []*fcmSdk.Message{
+		{
+			Topic: "topic1",
+			Data: map[string]string{
+				"k1": "v1",
+				"k2": "v2",
+			},
+		},
+		{
+			Topic: "topic2",
+			Data: map[string]string{
+				"k3": "v3",
+				"k4": "v4",
+			},
 		},
 	}
-	name, err := client.Send(ctx, topicOnly)
-	if err == nil {
-		fmt.Println(name)
-	} else {
-		fmt.Println(err)
+
+	br, err := client.SendAll(ctx, testMessages)
+	if err != nil {
+		fmt.Errorf(err.Error())
+	}
+
+	fmt.Printf("%+v\n", br)
+	for _, v := range br.Responses {
+		fmt.Printf("%+v\n", v)
 	}
 
 }

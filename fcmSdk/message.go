@@ -17,7 +17,7 @@ import (
 
 const (
 	DefaultMessagingEndpoint = "https://fcm.googleapis.com/v1"
-	defaultBatchEndpoint     = "https://fcm.googleapis.com/batch"
+	DefaultBatchEndpoint     = "https://fcm.googleapis.com/batch"
 
 	firebaseClientHeader   = "X-Firebase-Client"
 	apiFormatVersionHeader = "X-GOOG-API-FORMAT-VERSION"
@@ -47,6 +47,7 @@ type FcmResponseStatus struct {
 	StatusCode    int
 	MulticastId   int64               `json:"multicast_id"`
 	Success       int                 `json:"success"`
+	Name          string              `json:"name"`
 	Fail          int                 `json:"failure"`
 	Canonical_ids int                 `json:"canonical_ids"`
 	Results       []map[string]string `json:"results,omitempty"`
@@ -849,8 +850,8 @@ type ErrorInfo struct {
 
 // Client is the interface for the Firebase Cloud Messaging (FCM) service.
 type Client struct {
-	*fcmClient
-	*iidClient
+	*FcmClient
+	*IidClient
 }
 
 // NewClient creates a new instance of the Firebase Cloud Messaging Client.
@@ -871,26 +872,26 @@ func NewClient(ctx context.Context, c *internal.MessagingConfig) (*Client, error
 
 	if messagingEndpoint == "" {
 		messagingEndpoint = DefaultMessagingEndpoint
-		batchEndpoint = defaultBatchEndpoint
+		batchEndpoint = DefaultBatchEndpoint
 	}
 
 	return &Client{
-		fcmClient: newFCMClient(hc, c, messagingEndpoint, batchEndpoint),
-		iidClient: newIIDClient(hc),
+		FcmClient: NewFCMClient(hc, c, messagingEndpoint, batchEndpoint),
+		IidClient: NewIIDClient(hc),
 	}, nil
 }
 
-type fcmClient struct {
+type FcmClient struct {
 	FcmEndpoint   string
-	batchEndpoint string
-	project       string
-	version       string
-	httpClient    *internal.HTTPClient
+	BatchEndpoint string
+	Project       string
+	Version       string
+	HttpClient    *internal.HTTPClient
 }
 
-func newFCMClient(hc *http.Client, conf *internal.MessagingConfig, messagingEndpoint string, batchEndpoint string) *fcmClient {
+func NewFCMClient(hc *http.Client, conf *internal.MessagingConfig, messagingEndpoint string, batchEndpoint string) *FcmClient {
 	client := internal.WithDefaultRetryConfig(hc)
-	client.CreateErrFn = handleFCMError
+	client.CreateErrFn = HandleFCMError
 
 	version := fmt.Sprintf("fire-admin-go/%s", conf.Version)
 	client.Opts = []internal.HTTPOption{
@@ -898,12 +899,12 @@ func newFCMClient(hc *http.Client, conf *internal.MessagingConfig, messagingEndp
 		internal.WithHeader(firebaseClientHeader, version),
 	}
 
-	return &fcmClient{
+	return &FcmClient{
 		FcmEndpoint:   messagingEndpoint,
-		batchEndpoint: batchEndpoint,
-		project:       conf.ProjectID,
-		version:       version,
-		httpClient:    client,
+		BatchEndpoint: batchEndpoint,
+		Project:       conf.ProjectID,
+		Version:       version,
+		HttpClient:    client,
 	}
 }
 
@@ -912,8 +913,8 @@ func newFCMClient(hc *http.Client, conf *internal.MessagingConfig, messagingEndp
 // The Message must specify exactly one of Token, Topic and Condition fields. FCM will
 // customize the message for each target platform based on the arguments specified in the
 // Message.
-func (c *fcmClient) Send(ctx context.Context, message *Message) (*FcmResponseStatus, error) {
-	payload := &fcmRequest{
+func (c *FcmClient) Send(ctx context.Context, message *Message) (string, error) {
+	payload := &FcmRequest{
 		Message: message,
 	}
 	return c.makeSendRequest(ctx, payload)
@@ -923,54 +924,33 @@ func (c *fcmClient) Send(ctx context.Context, message *Message) (*FcmResponseSta
 //
 // This function does not actually deliver the message to target devices. Instead, it performs all
 // the SDK-level and backend validations on the message, and emulates the send operation.
-func (c *fcmClient) SendDryRun(ctx context.Context, message *Message) (*FcmResponseStatus, error) {
-	payload := &fcmRequest{
+func (c *FcmClient) SendDryRun(ctx context.Context, message *Message) (string, error) {
+	payload := &FcmRequest{
 		ValidateOnly: true,
 		Message:      message,
 	}
 	return c.makeSendRequest(ctx, payload)
 }
 
-func (c *fcmClient) makeSendRequest(ctx context.Context, req *fcmRequest) (*FcmResponseStatus, error) {
-	fcmRespStatus := new(FcmResponseStatus)
-
+func (c *FcmClient) makeSendRequest(ctx context.Context, req *FcmRequest) (string, error) {
 	if err := validateMessage(req.Message); err != nil {
-		return fcmRespStatus, err
+		return "", err
 	}
 
 	request := &internal.Request{
 		Method: http.MethodPost,
-		URL:    fmt.Sprintf("%s/projects/%s/messages:send", c.FcmEndpoint, c.project),
+		URL:    fmt.Sprintf("%s/projects/%s/messages:send", c.FcmEndpoint, c.Project),
 		Body:   internal.NewJSONEntity(req),
 	}
 
-	response, err := c.httpClient.DoAndUnmarshal(ctx, request, &fcmRespStatus)
-
-	if err != nil {
-		return fcmRespStatus, err
-	}
-	defer response.Resp.Body.Close()
-
-	fcmRespStatus.StatusCode = response.Resp.StatusCode
-
-	fcmRespStatus.RetryAfter = response.Header.Get(retry_after_header)
-
-	if response.Resp.StatusCode != 200 {
-		return fcmRespStatus, nil
-	}
-
-	err = fcmRespStatus.parseStatusBody(response.Body)
-	if err != nil {
-		return fcmRespStatus, err
-	}
-	fcmRespStatus.Ok = true
-
-	return fcmRespStatus, nil
+	var result FcmResponse
+	_, err := c.HttpClient.DoAndUnmarshal(ctx, request, &result)
+	return result.Name, err
 }
 
 // IsInternal checks if the given error was due to an internal server error.
 func IsInternal(err error) bool {
-	return hasMessagingErrorCode(err, internalError)
+	return HasMessagingErrorCode(err, internalError)
 }
 
 // IsInvalidAPNSCredentials checks if the given error was due to invalid APNS certificate or auth
@@ -984,12 +964,12 @@ func IsInvalidAPNSCredentials(err error) bool {
 // IsThirdPartyAuthError checks if the given error was due to invalid APNS certificate or auth
 // key.
 func IsThirdPartyAuthError(err error) bool {
-	return hasMessagingErrorCode(err, thirdPartyAuthError) || hasMessagingErrorCode(err, apnsAuthError)
+	return HasMessagingErrorCode(err, thirdPartyAuthError) || HasMessagingErrorCode(err, apnsAuthError)
 }
 
 // IsInvalidArgument checks if the given error was due to an invalid argument in the request.
 func IsInvalidArgument(err error) bool {
-	return hasMessagingErrorCode(err, invalidArgument)
+	return HasMessagingErrorCode(err, invalidArgument)
 }
 
 // IsMessageRateExceeded checks if the given error was due to the client exceeding a quota.
@@ -1001,7 +981,7 @@ func IsMessageRateExceeded(err error) bool {
 
 // IsQuotaExceeded checks if the given error was due to the client exceeding a quota.
 func IsQuotaExceeded(err error) bool {
-	return hasMessagingErrorCode(err, quotaExceeded)
+	return HasMessagingErrorCode(err, quotaExceeded)
 }
 
 // IsMismatchedCredential checks if the given error was due to an invalid credential or permission
@@ -1015,7 +995,7 @@ func IsMismatchedCredential(err error) bool {
 // IsSenderIDMismatch checks if the given error was due to an invalid credential or permission
 // error.
 func IsSenderIDMismatch(err error) bool {
-	return hasMessagingErrorCode(err, senderIDMismatch)
+	return HasMessagingErrorCode(err, senderIDMismatch)
 }
 
 // IsRegistrationTokenNotRegistered checks if the given error was due to a registration token that
@@ -1029,7 +1009,7 @@ func IsRegistrationTokenNotRegistered(err error) bool {
 // IsUnregistered checks if the given error was due to a registration token that
 // became invalid.
 func IsUnregistered(err error) bool {
-	return hasMessagingErrorCode(err, unregistered)
+	return HasMessagingErrorCode(err, unregistered)
 }
 
 // IsServerUnavailable checks if the given error was due to the backend server being temporarily
@@ -1043,7 +1023,7 @@ func IsServerUnavailable(err error) bool {
 // IsUnavailable checks if the given error was due to the backend server being temporarily
 // unavailable.
 func IsUnavailable(err error) bool {
-	return hasMessagingErrorCode(err, unavailable)
+	return HasMessagingErrorCode(err, unavailable)
 }
 
 // IsTooManyTopics checks if the given error was due to the client exceeding the allowed number
@@ -1061,16 +1041,16 @@ func IsUnknown(err error) bool {
 	return false
 }
 
-type fcmRequest struct {
+type FcmRequest struct {
 	ValidateOnly bool     `json:"validate_only,omitempty"`
 	Message      *Message `json:"message,omitempty"`
 }
 
-type fcmResponse struct {
+type FcmResponse struct {
 	Name string `json:"name"`
 }
 
-type fcmErrorResponse struct {
+type FcmErrorResponse struct {
 	Error struct {
 		Details []struct {
 			Type      string `json:"@type"`
@@ -1079,9 +1059,9 @@ type fcmErrorResponse struct {
 	} `json:"error"`
 }
 
-func handleFCMError(resp *internal.Response) error {
+func HandleFCMError(resp *internal.Response) error {
 	base := internal.NewFirebaseErrorOnePlatform(resp)
-	var fe fcmErrorResponse
+	var fe FcmErrorResponse
 	json.Unmarshal(resp.Body, &fe) // ignore any json parse errors at this level
 	for _, d := range fe.Error.Details {
 		if d.Type == "type.googleapis.com/google.firebase.fcm.v1.FcmError" {
@@ -1093,7 +1073,7 @@ func handleFCMError(resp *internal.Response) error {
 	return base
 }
 
-func hasMessagingErrorCode(err error, code string) bool {
+func HasMessagingErrorCode(err error, code string) bool {
 	fe, ok := err.(*internal.FirebaseError)
 	if !ok {
 		return false
@@ -1107,6 +1087,7 @@ func hasMessagingErrorCode(err error, code string) bool {
 func (this *FcmResponseStatus) PrintResults() {
 	fmt.Println("Status Code   :", this.StatusCode)
 	fmt.Println("Success       :", this.Success)
+	fmt.Println("Name          :", this.Name)
 	fmt.Println("Fail          :", this.Fail)
 	fmt.Println("Canonical_ids :", this.Canonical_ids)
 	fmt.Println("Topic MsgId   :", this.MsgId)
@@ -1120,9 +1101,7 @@ func (this *FcmResponseStatus) PrintResults() {
 }
 
 // parseStatusBody parse FCM response body
-func (this *FcmResponseStatus) parseStatusBody(body []byte) error {
-	sa := string(body)
-	fmt.Println(sa)
+func (this *FcmResponseStatus) ParseStatusBody(body []byte) error {
 	if err := json.Unmarshal([]byte(body), &this); err != nil {
 		return err
 	}
