@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"go-example/fcmSdk"
+	fcmTest "go-example/fcmSdk"
 	"go-example/fcmSdk/internal"
 
 	"google.golang.org/api/option"
@@ -22,12 +22,12 @@ var (
 
 func main() {
 	ctx := context.Background()
-	client, err := fcmSdk.NewClient(ctx, testMessagingConfig)
+	client, err := fcmTest.NewClient(ctx, testMessagingConfig)
 	if err != nil {
 		fmt.Printf(err.Error())
 	}
-	client.FcmEndpoint = fcmSdk.DefaultMessagingEndpoint
-	topicOnly := &fcmSdk.Message{
+	client.FcmEndpoint = fcmTest.DefaultMessagingEndpoint
+	topicOnly := &fcmTest.Message{
 		Topic: "test-topic",
 		Data: map[string]string{
 			"k1": "v1",

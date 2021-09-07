@@ -1,4 +1,4 @@
-package fcmSdk
+package fcmTest
 
 import (
 	"context"
