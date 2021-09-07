@@ -10,7 +10,7 @@ import (
 	"google.golang.org/api/option"
 )
 
-var FcmClient = &messaging.Client{}
+var RyFcmClient = &messaging.Client{}
 
 func init() {
 	var serviceAccountKey = []byte(`{
@@ -38,5 +38,5 @@ func init() {
 	if err != nil {
 		log.Fatalf("error getting Messaging client: %v\n", err)
 	}
-	FcmClient = client
+	RyFcmClient = client
 }

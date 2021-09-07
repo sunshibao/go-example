@@ -17,7 +17,7 @@ func main() {
 			"k2": "v2",
 		},
 	}
-	name, err := fcm.FcmClient.Send(ctx, topicOnly)
+	name, err := fcm.RyFcmClient.Send(ctx, topicOnly)
 	if err == nil {
 		fmt.Println(name)
 	} else {

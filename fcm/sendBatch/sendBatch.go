@@ -26,7 +26,7 @@ func main() {
 			},
 		},
 	}
-	br, err := fcm.FcmClient.SendAll(ctx, testMessages)
+	br, err := fcm.RyFcmClient.SendAll(ctx, testMessages)
 	if err != nil {
 		fmt.Errorf(err.Error())
 	}
