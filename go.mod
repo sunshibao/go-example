@@ -6,6 +6,7 @@ require (
 	firebase.google.com/go/v4 v4.6.0 // indirect
 	github.com/NaySoftware/go-fcm v0.0.0-20190516140123-808e978ddcd2 // indirect
 	github.com/astaxie/beego v1.12.3
+	github.com/elastic/go-elasticsearch v0.0.0 // indirect
 	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/gomodule/redigo v2.0.0+incompatible
