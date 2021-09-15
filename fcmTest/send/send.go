@@ -28,7 +28,7 @@ func main() {
 	}
 	client.FcmEndpoint = fcmTest.DefaultMessagingEndpoint
 	topicOnly := &fcmTest.Message{
-		Topic: "test-topic",
+		Token: "test-topic",
 		Data: map[string]string{
 			"k1": "v1",
 			"k2": "v2",
