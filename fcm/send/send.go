@@ -11,14 +11,14 @@ import (
 func main() {
 	ctx := context.Background()
 	topicOnly := &messaging.Message{
-		Topic: "com.tencent.tmgp.sgame",
+		Topic: "1234567",
 		Data: map[string]string{
 			"k1": "v1",
 			"k2": "v2",
 		},
 		Notification: &messaging.Notification{
-			Title: "Title",
-			Body:  "Body",
+			Title: "我是Title",
+			Body:  "我是Body",
 		},
 	}
 	name, err := fcm.RyFcmClient.Send(ctx, topicOnly)

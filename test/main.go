@@ -5,13 +5,19 @@ import (
 )
 
 func main() {
-	defer_call()
+	a := 1
+	b := 2
+	defer calc(a, calc(a, b)) //1,4
+	a = 0
+	defer calc(a, calc(a, b)) //2,3
 }
 
-func defer_call() {
-	defer func() { fmt.Println("打印前") }()
-	defer func() { fmt.Println("打印中") }()
-	defer func() { fmt.Println("打印后") }()
-
-	panic("触发异常")
+func calc(x, y int) int {
+	fmt.Println(x, y, x+y)
+	return x + y
 }
+
+// 123
+// 022
+// 022
+// 134

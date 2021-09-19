@@ -2,14 +2,16 @@ package main
 
 import (
 	"fmt"
-	_ "github.com/go-sql-driver/mysql"
 	"log"
+
+	_ "github.com/go-sql-driver/mysql"
+
+	"strings"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/sunshibao/go-utils/util/gconv"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
-	"strings"
 )
 
 type MongoAppInfo struct {
@@ -51,7 +53,7 @@ func main() {
 	}
 	defer mongodb.Close()
 
-	uri := "root:tyd*#2016@tcp(192.168.1.152:3306)/ry_game_center?charset=utf8mb4&parseTime=True&loc=Local"
+	uri := "root:sun18188@tcp(localhost:3306)/test?charset=utf8mb4&parseTime=True&loc=Local"
 
 	mysqldb, err := sqlx.Open("mysql", uri)
 	if err != nil {
@@ -82,7 +84,7 @@ func main() {
 func shell(mongodb *mgo.Session, database string, skip, limit int) (err error) {
 	c := mongodb.DB(database).C("package")
 	var mongoAppInfos []MongoAppInfo
-	c.Find(bson.M{"pic": 3, "apk": 1,"genreId": bson.M{"$regex": "GAME"}, "re": bson.M{"$in": []int{1, 2}}, "suffix": bson.M{"$exists": true}, "appId": bson.M{"$exists": true}, "check_size": bson.M{"$exists": true}}).Skip(skip).Limit(limit).All(&mongoAppInfos)
+	c.Find(bson.M{"pic": 3, "apk": 1, "genreId": bson.M{"$regex": "GAME"}, "re": bson.M{"$in": []int{1, 2}}, "suffix": bson.M{"$exists": true}, "appId": bson.M{"$exists": true}, "check_size": bson.M{"$exists": true}, "_id": bson.M{"$gt": bson.ObjectIdHex("6119fc57906ddd5816c8a5c0")}}).Skip(skip).Limit(limit).All(&mongoAppInfos)
 
 	for _, v := range mongoAppInfos {
 		//写入oz_apk表
@@ -102,7 +104,7 @@ func shell(mongodb *mgo.Session, database string, skip, limit int) (err error) {
 			statusImg = 0
 		}
 
-		apkSql := "insert into kk_apk (package_name,apk_name,version_code,version_name,download_url,company,file_size,download_num,res_img_type,status)values(?,?,?,?,?,?,?,?,?,?)"
+		apkSql := "insert into kk_apk (package_name,apk_name,version_code,version_name,download_url,company,file_size,download_num,apk_res_type,status)values(?,?,?,?,?,?,?,?,?,?)"
 		appResult, err := DB.Exec(apkSql, v.PackageName, v.Title, v.CheckVersionCode, v.CheckVersionName, downloadUrl, v.Developer, v.CheckSize, gconv.Int64(strings.Replace(v.Installs, "+", "", 1)), strings.ToLower(v.GenreId), statusApk)
 
 		if err != nil {
