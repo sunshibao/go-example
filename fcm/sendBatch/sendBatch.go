@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"go-example/fcm"
+	fcm "gin/lib/fcmpush"
 
 	"firebase.google.com/go/messaging"
 )

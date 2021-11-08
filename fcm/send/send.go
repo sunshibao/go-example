@@ -9,18 +9,21 @@ import (
 )
 
 func main() {
-	ctx := context.Background()
 	topicOnly := &messaging.Message{
-		Topic: "1234567",
+		//Topic: "2680007500000016408_en",
+		Topic: "31274_zh_cn",
+
 		Data: map[string]string{
-			"k1": "v1",
-			"k2": "v2",
+			"packageName":   "com.miHoYo.GenshinImpact",
+			"clickJumpType": "3",
 		},
 		Notification: &messaging.Notification{
-			Title: "我是Title",
-			Body:  "我是Body",
+			Title: "你预约的`包名`已安装", //你预约的包名已安装
+			Body:  "你预约的`包名`已安装",
 		},
 	}
+	ctx := context.Background()
+
 	name, err := fcm.RyFcmClient.Send(ctx, topicOnly)
 	if err == nil {
 		fmt.Println(name)
