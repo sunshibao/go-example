@@ -304,7 +304,7 @@ func (this *FcmClient) SetRestrictedPackageName(pkg string) *FcmClient {
 	return this
 }
 
-// SetDryRun This parameter, when set to true, allows developers to test
+// SetDryRun This parameter, when set to true, allows developers to test13
 // a request without actually sending a message.
 // The default value is false
 func (this *FcmClient) SetDryRun(drun bool) *FcmClient {

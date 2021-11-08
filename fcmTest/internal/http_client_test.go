@@ -35,7 +35,7 @@ var (
 		MaxRetries:       4,
 		ExpBackoffFactor: 0.5,
 	}
-	tokenSourceOpt = option.WithTokenSource(&MockTokenSource{AccessToken: "test"})
+	tokenSourceOpt = option.WithTokenSource(&MockTokenSource{AccessToken: "test13"})
 )
 
 var testRequests = []struct {
@@ -192,7 +192,7 @@ func TestDefaultOpts(t *testing.T) {
 	client := &HTTPClient{
 		Client: http.DefaultClient,
 		Opts: []HTTPOption{
-			WithHeader("Test-Header", "test-value"),
+			WithHeader("Test-Header", "test13-value"),
 		},
 	}
 	req := &Request{
@@ -208,8 +208,8 @@ func TestDefaultOpts(t *testing.T) {
 	if resp.Status != http.StatusOK {
 		t.Errorf("Status = %d; want = %d", resp.Status, http.StatusOK)
 	}
-	if header != "test-value" {
-		t.Errorf("Test-Header = %q; want = %q", header, "test-value")
+	if header != "test13-value" {
+		t.Errorf("Test-Header = %q; want = %q", header, "test13-value")
 	}
 }
 
@@ -825,7 +825,7 @@ type faultyEntity struct {
 
 func (e *faultyEntity) Bytes() ([]byte, error) {
 	e.RequestAttempts++
-	return nil, errors.New("test error")
+	return nil, errors.New("test13 error")
 }
 
 func (e *faultyEntity) Mime() string {
@@ -843,7 +843,7 @@ func (e *faultyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, e.Err
 	}
 
-	return nil, errors.New("test error")
+	return nil, errors.New("test13 error")
 }
 
 func acceptAll(resp *Response) bool {

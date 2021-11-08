@@ -112,15 +112,14 @@ func TestSyncMap() {
 	}
 	wg.Wait()
 
-
-	m.Range(func(key, value interface{}) bool {        // 第二种读sync.map方式
+	m.Range(func(key, value interface{}) bool { // 第二种读sync.map方式
 		log.Printf("range k:%v,v=%v\n", key, value)
 		return true
 	})
 }
 
 func main() {
-	//TestMap()     // test1 因为map并不是并发安全的，给map写入的时候发生 fatal error: concurrent map writes
+	//TestMap()     // test13 因为map并不是并发安全的，给map写入的时候发生 fatal error: concurrent map writes
 	//TestMap2()    // test2 通过加锁方式，解决 map 并发安全
 	TestSyncMap() // test3  通过sync包的sync.Map 解决 map 并发安全
 }

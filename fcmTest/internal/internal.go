@@ -58,7 +58,7 @@ type MockTokenSource struct {
 	AccessToken string
 }
 
-// Token returns the test token associated with the TokenSource.
+// Token returns the test13 token associated with the TokenSource.
 func (ts *MockTokenSource) Token() (*oauth2.Token, error) {
 	return &oauth2.Token{AccessToken: ts.AccessToken}, nil
 }

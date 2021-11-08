@@ -147,7 +147,7 @@ func TestTimeoutError(t *testing.T) {
 	}
 	get := &Request{
 		Method: http.MethodGet,
-		URL:    "http://test.url",
+		URL:    "http://test13.url",
 	}
 	want := "timed out while making an http call"
 
@@ -175,7 +175,7 @@ func TestTimeoutError(t *testing.T) {
 type timeoutError struct{}
 
 func (t *timeoutError) Error() string {
-	return "test timeout error"
+	return "test13 timeout error"
 }
 
 func (t *timeoutError) Timeout() bool {
@@ -187,13 +187,13 @@ func TestNetworkOutageError(t *testing.T) {
 		name string
 		err  error
 	}{
-		{"NetDialError", &net.OpError{Op: "dial", Err: errors.New("test error")}},
-		{"NetReadError", &net.OpError{Op: "read", Err: errors.New("test error")}},
+		{"NetDialError", &net.OpError{Op: "dial", Err: errors.New("test13 error")}},
+		{"NetReadError", &net.OpError{Op: "read", Err: errors.New("test13 error")}},
 		{
 			"WrappedNetReadError",
 			&net.OpError{
-				Op:  "test",
-				Err: &net.OpError{Op: "read", Err: errors.New("test error")},
+				Op:  "test13",
+				Err: &net.OpError{Op: "read", Err: errors.New("test13 error")},
 			},
 		},
 		{"ECONNREFUSED", syscall.ECONNREFUSED},
@@ -201,7 +201,7 @@ func TestNetworkOutageError(t *testing.T) {
 
 	get := &Request{
 		Method: http.MethodGet,
-		URL:    "http://test.url",
+		URL:    "http://test13.url",
 	}
 	want := "failed to establish a connection"
 
@@ -248,7 +248,7 @@ func TestUnknownNetworkError(t *testing.T) {
 	}
 	get := &Request{
 		Method: http.MethodGet,
-		URL:    "http://test.url",
+		URL:    "http://test13.url",
 	}
 	want := "unknown error while making an http call"
 

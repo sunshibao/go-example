@@ -16,7 +16,7 @@ var (
 		Opts: []option.ClientOption{
 			option.WithTokenSource(&internal.MockTokenSource{AccessToken: token}),
 		},
-		Version: "test-version",
+		Version: "test13-version",
 	}
 )
 
@@ -28,7 +28,7 @@ func main() {
 	}
 	client.FcmEndpoint = fcmTest.DefaultMessagingEndpoint
 	topicOnly := &fcmTest.Message{
-		Token: "test-topic",
+		Token: "test13-topic",
 		Data: map[string]string{
 			"k1": "v1",
 			"k2": "v2",

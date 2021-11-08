@@ -2,7 +2,7 @@ package main
 
 import "testing"
 
-// go test -bench='Fib$' -benchtime=5s -count=3 .
+// go test13 -bench='Fib$' -benchtime=5s -count=3 .
 // -bench 哪个文件 正则匹配   `Fib$` 以Fib结尾。   `Generate` 包含Generate
 // -benchtime 多少秒（5s）。。。多少个（30x）
 // -count 多少轮

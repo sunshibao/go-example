@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	_ "myGo/init/test1"
+	_ "myGo/init/test13"
 	_ "myGo/init/test2"
 	"net/http"
 )

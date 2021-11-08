@@ -11,14 +11,14 @@ import (
 	"testing"
 )
 
-const wantURL = "/test"
+const wantURL = "/test13"
 
 func TestDoAndUnmarshalGet(t *testing.T) {
 	var req *http.Request
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		req = r
 		resp := `{
-			"name": "test"
+			"name": "test13"
 		}`
 		w.Write([]byte(resp))
 	})
@@ -42,8 +42,8 @@ func TestDoAndUnmarshalGet(t *testing.T) {
 	if resp.Status != http.StatusOK {
 		t.Errorf("Status = %d; want = %d", resp.Status, http.StatusOK)
 	}
-	if data.Name != "test" {
-		t.Errorf("Data = %v; want = {Name: %q}", data, "test")
+	if data.Name != "test13" {
+		t.Errorf("Data = %v; want = {Name: %q}", data, "test13")
 	}
 	if req.Method != http.MethodGet {
 		t.Errorf("Method = %q; want = %q", req.Method, http.MethodGet)
@@ -60,7 +60,7 @@ func TestDoAndUnmarshalPost(t *testing.T) {
 		req = r
 		b, _ = ioutil.ReadAll(r.Body)
 		resp := `{
-			"name": "test"
+			"name": "test13"
 		}`
 		w.Write([]byte(resp))
 	})
@@ -73,7 +73,7 @@ func TestDoAndUnmarshalPost(t *testing.T) {
 	post := &Request{
 		Method: http.MethodPost,
 		URL:    fmt.Sprintf("%s%s", server.URL, wantURL),
-		Body:   NewJSONEntity(map[string]string{"input": "test-input"}),
+		Body:   NewJSONEntity(map[string]string{"input": "test13-input"}),
 	}
 	var data responseBody
 
@@ -85,8 +85,8 @@ func TestDoAndUnmarshalPost(t *testing.T) {
 	if resp.Status != http.StatusOK {
 		t.Errorf("Status = %d; want = %d", resp.Status, http.StatusOK)
 	}
-	if data.Name != "test" {
-		t.Errorf("Data = %v; want = {Name: %q}", data, "test")
+	if data.Name != "test13" {
+		t.Errorf("Data = %v; want = {Name: %q}", data, "test13")
 	}
 	if req.Method != http.MethodPost {
 		t.Errorf("Method = %q; want = %q", req.Method, http.MethodGet)
@@ -101,8 +101,8 @@ func TestDoAndUnmarshalPost(t *testing.T) {
 	if err := json.Unmarshal(b, &parsed); err != nil {
 		t.Fatal(err)
 	}
-	if parsed.Input != "test-input" {
-		t.Errorf("Request Body = %v; want = {Input: %q}", parsed, "test-input")
+	if parsed.Input != "test13-input" {
+		t.Errorf("Request Body = %v; want = {Input: %q}", parsed, "test13-input")
 	}
 }
 

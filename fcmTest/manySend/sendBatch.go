@@ -16,7 +16,7 @@ var (
 		Opts: []option.ClientOption{
 			option.WithTokenSource(&internal.MockTokenSource{AccessToken: token}),
 		},
-		Version: "test-version",
+		Version: "test13-version",
 	}
 )
 

@@ -20,7 +20,7 @@ const (
 	MaxMessages       = 500
 	MultipartBoundary = "__END_OF_PART__"
 	WantMime          = "multipart/mixed; boundary=__END_OF_PART__"
-	WantSendURL       = "/v1/projects/test-project/messages:send"
+	WantSendURL       = "/v1/projects/test13-project/messages:send"
 )
 
 // MulticastMessage represents a message that can be sent to multiple devices via Firebase Cloud

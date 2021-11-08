@@ -43,7 +43,7 @@ func GetDatabase() *sqlx.DB {
 func main() {
 
 	host := "18.177.149.123:27017"
-	database := "test"
+	database := "test13"
 	mongodb, err := mgo.Dial("mongodb://" + host)
 	if err != nil {
 		mongodb.Close()

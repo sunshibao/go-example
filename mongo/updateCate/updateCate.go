@@ -39,7 +39,7 @@ func main() {
 
 	uri := "usr_dev:6RqfI^G^QaFLh@eqk*Z@tcp(data-sql1.ry.cn:3306)/ry_market?charset=utf8mb4&parseTime=True&loc=Local"
 	//uri := "root:tyd*#2016@tcp(192.168.1.152:3306)/ry_market?charset=utf8mb4&parseTime=True&loc=Local"
-	//uri := "root:sun18188@tcp(127.0.0.1:3306)/test?charset=utf8mb4&parseTime=True&loc=Local"
+	//uri := "root:sun18188@tcp(127.0.0.1:3306)/test13?charset=utf8mb4&parseTime=True&loc=Local"
 
 	mysqldb, err := gorm.Open("mysql", uri)
 	if err != nil {
@@ -86,3 +86,30 @@ func shell(start, limit int) (err error) {
 
 	return nil
 }
+
+// 添加标签
+//apkSqlLabel := "select cate_id from oz_label_new2222 where label_name = ?"
+//DB.Exec(apkSqlLabel, appDetails.CategoryName)
+//iconResultLabel, err := DB.Exec(apkSqlLabel, appDetails.CategoryName, appDetails.CategoryName, time.Now(), time.Now())
+//labelId, err := iconResultLabel.LastInsertId()
+//
+//// 添加标签关系
+//apkSqlApkLabel := "INSERT INTO oz_apk_label_new2222 (`apk_id`, `label_id`, `main_label`, `sequence`) VALUES (?, ?, 0, 0)"
+//DB.Exec(apkSqlApkLabel, apkId, labelId)
+//
+//// 添加分类
+//apkSqlCate := "select cate_id from cms_category_new2222 where cate_name = ?"
+//var cate Cate
+//err = DB.Get(&cate, apkSqlCate, appDetails.CategoryName)
+//if err != nil {
+//return err
+//}
+//
+//// 添加分类关系
+//if cate.CateId == 0 {
+//apkSqlApkCate := "INSERT INTO oz_apk_category_new2222 (`apk_id`, `cate_id`) VALUES (?, ?)"
+//DB.Exec(apkSqlApkCate, apkId, 9999999)
+//} else {
+//apkSqlApkCate := "INSERT INTO oz_apk_category_new2222 (`apk_id`, `cate_id`) VALUES (?, ?)"
+//DB.Exec(apkSqlApkCate, apkId, cate.CateId)
+//}
