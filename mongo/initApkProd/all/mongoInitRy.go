@@ -30,7 +30,8 @@ type Dc struct {
 type AppInfo struct {
 	DeveloperName     string   `bson:"developerName"`
 	DeveloperEmail    string   `bson:"developerEmail"`
-	DeveloperWebsite  string   `Bson:"developerWebsite"`
+	DeveloperWebsite  string   `bson:"developerWebsite"`
+	DeveloperAddress  string   `bson:"developerAddress"`
 	VersionCode       int      `bson:"versionCode"`
 	VersionString     string   `bson:"versionString"`
 	Permission        []string `bson:"permission"`
@@ -54,9 +55,8 @@ type Detail struct {
 }
 
 type LangAppInfo struct {
-	ID                     string      `bson:"id"`
 	Type                   int         `bson:"type"`
-	CategoryId             string      `bson:"CategoryId"`
+	CategoryId             string      `bson:"categoryId"`
 	Title                  string      `bson:"title"`
 	Creator                string      `bson:"creator"`
 	DescriptionHtml        string      `bson:"descriptionHtml"`

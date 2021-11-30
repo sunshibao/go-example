@@ -138,13 +138,14 @@ func main10() {
 		os.Exit(0)
 	}()
 
-	select{}
+	select {}
 }
 
-//11. 不同Goroutine之间不满足顺序一致性内存模型
+//a1. 不同Goroutine之间不满足顺序一致性内存模型
 // 因为在不同的Goroutine，main函数中无法保证能打印出hello, world:
 var msg string
 var done bool
+
 func setup() {
 	msg = "hello, world"
 	done = true
@@ -160,6 +161,7 @@ func main11() {
 //解决的办法是用显式同步：
 var msg1 string
 var done1 = make(chan bool)
+
 func setup1() {
 	msg1 = "hello, world"
 	done1 <- true
@@ -172,7 +174,6 @@ func main12() {
 	println(msg1)
 }
 
-
 //13. 闭包错误引用同一个变量
 func main13() {
 	for i := 0; i < 5; i++ {
@@ -181,6 +182,7 @@ func main13() {
 		}()
 	}
 }
+
 //改进的方法是在每轮迭代中生成一个局部变量：
 func main14() {
 	for i := 0; i < 5; i++ {
@@ -190,6 +192,7 @@ func main14() {
 		}()
 	}
 }
+
 //或者是通过函数参数传入：
 func main15() {
 	for i := 0; i < 5; i++ {
@@ -267,7 +270,7 @@ func main20() {
 			for i := 0; ; i++ {
 				ch <- i
 			}
-		} ()
+		}()
 		return ch
 	}()
 
@@ -291,12 +294,12 @@ func main() {
 		go func() {
 			for i := 0; ; i++ {
 				select {
-				case <- ctx.Done():
+				case <-ctx.Done():
 					return
 				case ch <- i:
 				}
 			}
-		} ()
+		}()
 		return ch
 	}(ctx)
 
@@ -308,4 +311,5 @@ func main() {
 		}
 	}
 }
+
 //当main函数在break跳出循环时，通过调用cancel()来通知后台Goroutine退出，这样就避免了Goroutine的泄漏。

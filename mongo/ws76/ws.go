@@ -26,20 +26,21 @@ type Datalist struct {
 	List   []List `json:"list"`
 }
 type List struct {
-	Id       int    `json:"id"`
-	Name     string `json:"name"`
-	Package  string `json:"package"`
-	Uname    string `json:"uname"`
-	Size     int    `json:"size"`
-	Icon     string `json:"icon"`
-	Graphic  string `json:"graphic"`
-	Added    string `json:"added"`
-	Modified string `json:"modified"`
-	Updated  string `json:"updated"`
-	Uptype   string `json:"uptype"`
-	Store    Store  `json:"store"`
-	File     File   `json:"file"`
-	Stats    Stats  `json:"stats"`
+	Id       int      `json:"id"`
+	Name     string   `json:"name"`
+	Package  string   `json:"package"`
+	Uname    string   `json:"uname"`
+	Size     int      `json:"size"`
+	Icon     string   `json:"icon"`
+	Graphic  string   `json:"graphic"`
+	Added    string   `json:"added"`
+	Modified string   `json:"modified"`
+	Updated  string   `json:"updated"`
+	Uptype   string   `json:"uptype"`
+	Store    Store    `json:"store"`
+	File     File     `json:"file"`
+	Stats    Stats    `json:"stats"`
+	appcoins Appcoins `json:"appcoins"`
 }
 
 type Store struct {
@@ -57,6 +58,11 @@ type File struct {
 type Stats struct {
 	Downloads  int `json:"downloads"`
 	Pdownloads int `json:"pdownloads"`
+}
+
+type Appcoins struct {
+	Advertising bool `json:"advertising"`
+	Billing     bool `json:"billing"`
 }
 
 type MysqlWs75 struct {
@@ -79,6 +85,8 @@ type MysqlWs75 struct {
 	FileMd5sum      string `gorm:"column:file_md5sum" db:"file_md5sum" json:"file_md5sum" form:"file_md5sum"`
 	StatsDownloads  int    `gorm:"column:stats_downloads" db:"stats_downloads" json:"stats_downloads" form:"stats_downloads"`
 	StatsPdownloads int    `gorm:"column:stats_pdownloads" db:"stats_pdownloads" json:"stats_pdownloads" form:"stats_pdownloads"`
+	Advertising     int    `gorm:"column:advertising" db:"advertising" json:"advertising" form:"advertising"`
+	Billing         int    `gorm:"column:billing" db:"billing" json:"billing" form:"billing"`
 }
 
 var DB *gorm.DB
@@ -86,8 +94,8 @@ var DB *gorm.DB
 func main() {
 
 	//uri := "usr_dev:6RqfI^G^QaFLh@eqk*Z@tcp(data-sql1.ry.cn:3306)/ry_market?charset=utf8mb4&parseTime=True&loc=Local"
-	//uri := "root:tyd*#2016@tcp(192.168.1.152:3306)/ry_market_examine?charset=utf8mb4&parseTime=True&loc=Local"
-	uri := "root:@tcp(127.0.0.1:3306)/test13?charset=utf8mb4&parseTime=True&loc=Local"
+	//uri := "root:tyd*#2016@tcp(192.168.1.152:3306)/ry_market?charset=utf8mb4&parseTime=True&loc=Local"
+	uri := "root:@tcp(127.0.0.1:3306)/test?charset=utf8mb4&parseTime=True&loc=Local"
 
 	mysqldb, err := gorm.Open("mysql", uri)
 	if err != nil {
@@ -96,7 +104,7 @@ func main() {
 	}
 	DB = mysqldb
 
-	i := 0
+	i := 922
 	var wg = sync.WaitGroup{}
 	for {
 		wg.Add(1)
@@ -105,7 +113,7 @@ func main() {
 			wg.Done()
 		}(i)
 		wg.Wait()
-		if i*25 > 800000 {
+		if i*25 > 100000 {
 			break
 		}
 		i++
@@ -117,9 +125,11 @@ func main() {
 }
 
 func getApkList(offset int) (err error) {
+
 	log.Printf("------offset:%d", offset)
-	url := fmt.Sprintf("https://ws75.aptoide.com/api/7/listApps/offset=%d", offset)
-	resp, _ := http.Get(url)
+	url := fmt.Sprintf("https://ws75.aptoide.com/api/7/listApps/store_name=catappult/offset=%d", offset)
+
+	resp, err := http.Get(url)
 
 	defer resp.Body.Close()
 
@@ -136,6 +146,14 @@ func getApkList(offset int) (err error) {
 
 func insertWsData(dataList Datalist) (err error) {
 	for _, s := range dataList.List {
+		advertising := 0
+		billing := 0
+		if s.appcoins.Advertising {
+			advertising = 1
+		}
+		if s.appcoins.Billing {
+			billing = 1
+		}
 		newMysql := MysqlWs75{
 			s.Id,
 			s.Name,
@@ -156,6 +174,8 @@ func insertWsData(dataList Datalist) (err error) {
 			s.File.Md5sum,
 			s.Stats.Downloads,
 			s.Stats.Pdownloads,
+			advertising,
+			billing,
 		}
 		DB.Table("ws76").Create(newMysql)
 	}

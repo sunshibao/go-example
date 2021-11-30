@@ -1,8 +1,14 @@
 package main
 
 import (
+	"bytes"
+	"encoding/hex"
 	"fmt"
+	"io/ioutil"
 	"log"
+	"net/http"
+	"regexp"
+	"strconv"
 	"time"
 
 	"gopkg.in/mgo.v2/bson"
@@ -71,7 +77,7 @@ type LangAppInfo struct {
 type MongoAppInfo struct {
 	Package    string                 `bson:"package"`
 	Language   map[string]LangAppInfo `bson:"language"`
-	UpdateTime time.Time              `bson:"updateTime1"`
+	UpdateTime time.Time              `bson:"updateTime"`
 	Status     int                    `bson:"status"`
 }
 
@@ -104,7 +110,7 @@ func main() {
 	DB = mysqldb
 
 	skip := 0
-	limit := 100
+	limit := 10
 	s := 0
 	var err2 error
 	for {
@@ -138,8 +144,8 @@ func shell(mongodb *mgo.Session, database string, skip, limit int) (err error) {
 		//	log.Printf("下线应用 PackageName:%s-----num:%d\n", s.Package, k+skip)
 		//	continue
 		//}
-		v := s.Language["zh_CN"]
-		appDetails := s.Language["zh_CN"].Detail.AppDetails
+		v := s.Language["ru_RU"]
+		appDetails := s.Language["ru_RU"].Detail.AppDetails
 		statusApk := 1
 		apkType := 0
 		cateName := appDetails.CategoryName
@@ -164,13 +170,14 @@ func shell(mongodb *mgo.Session, database string, skip, limit int) (err error) {
 
 			if err != nil {
 				log.Printf("oz_apk err:%v", err)
-				return err
-			}
-			apkId, _ = appResult.LastInsertId()
-
-			err = insertDB(s, "ru_RU", apkId) //俄语
-			if err != nil {
 				continue
+			} else {
+
+				apkId, _ = appResult.LastInsertId()
+				err = insertDB(s, "ru_RU", apkId) //俄语
+				if err != nil {
+					continue
+				}
 			}
 
 		}
@@ -243,6 +250,9 @@ func insertDB(s MongoAppInfo, lang string, apkId int64) error {
 		inAppProduct = 1
 	}
 
+	v.DescriptionHtml = TrimHtml(v.DescriptionHtml)
+	appDetails.RecentChangesHtml = TrimHtml(appDetails.RecentChangesHtml)
+
 	permission := strings.Join(appDetails.Permission, ",")
 	apkDescSql := "insert into oz_apk_desc (apk_id,package_name,apk_name_lang,description,app_permission_desc,app_permission_url,ver_upt_des,language,png_icon_id,jpg_icon_id,status,in_app_product,install_notes,apk_res_type)values(?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
 	_, err = DB.Exec(apkDescSql, apkId, s.Package, v.Title, v.DescriptionHtml, permission, v.Annotations.PrivacyPolicyUrl, appDetails.RecentChangesHtml, lang, iconId, iconId, statusApkDesc, inAppProduct, installNotes, cateName)
@@ -259,7 +269,8 @@ func insertDB(s MongoAppInfo, lang string, apkId int64) error {
 		log.Printf("apkPerSql err:%v", err)
 		return err
 	}
-
+	//图片去重，写入oz_image ,oz_apk_image
+	//DelImage(apkId, newIcon, lang, s.Package, v.ImgList)
 	//添加图片
 	for _, val := range v.ImgList {
 		val = strings.Replace(val, "https://play-lh.googleusercontent.com", newIcon, 1)
@@ -281,4 +292,90 @@ func insertDB(s MongoAppInfo, lang string, apkId int64) error {
 		}
 	}
 	return nil
+}
+
+func DelImage(apkId int64, newIcon, lang, package2 string, imageList []string) {
+	mm := make(map[string][]string) //去重
+	for _, v := range imageList {
+		if v == "" {
+			continue
+		}
+		v = strings.Replace(v, "https://play-lh.googleusercontent.com", newIcon, 1)
+
+		res, err := http.Get(v)
+		if err != nil {
+			fmt.Println("A error occurred!")
+			continue
+		}
+		// defer后的为延时操作，通常用来释放相关变量
+		defer res.Body.Close()
+
+		pix, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			continue
+		}
+		fileCode := bytesToHexString(pix)
+
+		mm[fileCode] = append(mm[fileCode], v)
+
+	}
+	for _, vv := range mm {
+		for kkk, vvv := range vv {
+			if kkk == 0 {
+				//写入oz_image表
+				scrSql := "INSERT INTO oz_image (`image_name`, `hd_image_url`, `nhd_image_url`,`image_type`,`language`) VALUES (?,?,?,?,?);"
+				screResult, err := DB.Exec(scrSql, package2+"_Screenshots", vvv, vvv, 50, lang)
+
+				if err != nil {
+					log.Printf("oz_image 3 err:%v", err)
+					continue
+				}
+				//写入oz_apk_image表
+				imageId, _ := screResult.LastInsertId()
+				ssSql := "INSERT INTO oz_apk_image (`apk_id`, `image_id`,`language`) VALUES (?,?,?);"
+				_, err = DB.Exec(ssSql, apkId, imageId, lang)
+				if err != nil {
+					log.Printf("oz_apk_image err:%v", err)
+					continue
+				}
+			}
+		}
+	}
+}
+
+func TrimHtml(src string) string {
+	//将HTML标签全转换成小写
+	re, _ := regexp.Compile("\\<[\\S\\s]+?\\>")
+	src = re.ReplaceAllStringFunc(src, strings.ToLower)
+	//去除STYLE
+	re, _ = regexp.Compile("\\<style[\\S\\s]+?\\</style\\>")
+	src = re.ReplaceAllString(src, "")
+	//去除SCRIPT
+	re, _ = regexp.Compile("\\<script[\\S\\s]+?\\</script\\>")
+	src = re.ReplaceAllString(src, "")
+	//去除所有尖括号内的HTML代码，并换成换行符
+	re, _ = regexp.Compile("\\<[\\S\\s]+?\\>")
+	src = re.ReplaceAllString(src, "\n")
+	//去除连续的换行符
+	re, _ = regexp.Compile("\\s{2,}")
+	src = re.ReplaceAllString(src, "\n")
+	return strings.TrimSpace(src)
+}
+
+// 获取前面结果字节的二进制
+func bytesToHexString(src []byte) string {
+	res := bytes.Buffer{}
+	if src == nil || len(src) <= 0 {
+		return ""
+	}
+	temp := make([]byte, 0)
+	for _, v := range src {
+		sub := v & 0xFF
+		hv := hex.EncodeToString(append(temp, sub))
+		if len(hv) < 2 {
+			res.WriteString(strconv.FormatInt(int64(0), 10))
+		}
+		res.WriteString(hv)
+	}
+	return res.String()
 }
