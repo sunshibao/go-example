@@ -40,7 +40,7 @@ type List struct {
 	Store    Store    `json:"store"`
 	File     File     `json:"file"`
 	Stats    Stats    `json:"stats"`
-	appcoins Appcoins `json:"appcoins"`
+	Appcoins Appcoins `json:"appcoins"`
 }
 
 type Store struct {
@@ -104,7 +104,7 @@ func main() {
 	}
 	DB = mysqldb
 
-	i := 922
+	i := 0
 	var wg = sync.WaitGroup{}
 	for {
 		wg.Add(1)
@@ -148,10 +148,10 @@ func insertWsData(dataList Datalist) (err error) {
 	for _, s := range dataList.List {
 		advertising := 0
 		billing := 0
-		if s.appcoins.Advertising {
+		if s.Appcoins.Advertising {
 			advertising = 1
 		}
-		if s.appcoins.Billing {
+		if s.Appcoins.Billing {
 			billing = 1
 		}
 		newMysql := MysqlWs75{
@@ -177,7 +177,7 @@ func insertWsData(dataList Datalist) (err error) {
 			advertising,
 			billing,
 		}
-		DB.Table("ws76").Create(newMysql)
+		DB.Table("ws77").Create(newMysql)
 	}
 	return nil
 }
