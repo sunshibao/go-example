@@ -94,8 +94,8 @@ var DB *gorm.DB
 func main() {
 
 	//uri := "usr_dev:6RqfI^G^QaFLh@eqk*Z@tcp(data-sql1.ry.cn:3306)/ry_market?charset=utf8mb4&parseTime=True&loc=Local"
-	//uri := "root:tyd*#2016@tcp(192.168.1.152:3306)/ry_market?charset=utf8mb4&parseTime=True&loc=Local"
-	uri := "root:@tcp(127.0.0.1:3306)/test?charset=utf8mb4&parseTime=True&loc=Local"
+	uri := "root:tyd*#2016@tcp(192.168.1.152:3306)/ry_market_examine?charset=utf8mb4&parseTime=True&loc=Local"
+	//uri := "root:@tcp(127.0.0.1:3306)/sql?charset=utf8mb4&parseTime=True&loc=Local"
 
 	mysqldb, err := gorm.Open("mysql", uri)
 	if err != nil {

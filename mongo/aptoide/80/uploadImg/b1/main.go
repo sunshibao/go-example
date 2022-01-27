@@ -1,10 +1,14 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"path"
 	"strings"
 	"sync"
 
@@ -19,9 +23,23 @@ var CosClient *cos.Client
 var DB *gorm.DB
 
 func main() {
+	//wg := sync.WaitGroup{}
+	//for i := 0; i < 9; i++ {
+	//	wg.Add(1)
+	//	minId := i * 10000
+	//	go func(id int) {
+	//		defer wg.Done()
+	//		start(id)
+	//	}(minId)
+	//}
+	//wg.Wait()
+	start(0)
+}
+
+func start(minId int) {
 	//建立连接
 	NewCosClient()
-	uri := "root:@tcp(127.0.0.1:3306)/test?charset=utf8mb4&parseTime=True&loc=Local"
+	uri := "root:Droi*#2021@tcp(127.0.0.1:3306)/ry_market_examine?charset=utf8mb4&parseTime=True&loc=Local"
 
 	mysqldb, err := gorm.Open("mysql", uri)
 	if err != nil {
@@ -35,9 +53,9 @@ func main() {
 	s := 0
 	var err2 error
 	for {
-		if err2 == nil && skip < 20000 {
+		if err2 == nil && skip < 10000 {
 			skip = 0 + limit*s
-			err2 = GetApkList(skip, limit)
+			err2 = GetApkList(minId, skip, limit)
 			s++
 		} else {
 			break
@@ -47,13 +65,13 @@ func main() {
 
 }
 
-func GetApkList(skip, limit int) (err error) {
-	sql1 := "select id,ws_id,package,icon,media_screenshots from ws80_detail limit ?,?"
-	rows, err := DB.Raw(sql1, skip, limit).Rows()
+func GetApkList(id, skip, limit int) (err error) {
+	sql1 := "select id,ws_id,package,icon,media_screenshots from ws80_detail_copy2 where img_pull_status = 0 and id>? limit ?,?"
+	rows, err := DB.Raw(sql1, id, skip, limit).Rows()
 	if err != nil {
 		return err
 	} else {
-
+		wg := sync.WaitGroup{}
 		for rows.Next() {
 			var id int
 			var wsId int
@@ -70,26 +88,24 @@ func GetApkList(skip, limit int) (err error) {
 				split := strings.Split(icon, "catappult/")
 				iconName := gconv.String(wsId) + "-" + packageName + "-" + split[1]
 				newName := baseName + "/" + iconName
-				go UploadCos(id, newName, icon)
+				wg.Add(1)
+				go UploadCos(id, newName, icon, &wg)
 			}
 			if image != "" {
 				baseName := "aptoide_img"
 				split2 := strings.Split(image, ",")
-				wg := sync.WaitGroup{}
+
 				for _, v := range split2 {
-					wg.Add(1)
 					split := strings.Split(v, "catappult/")
 					imgName := gconv.String(wsId) + "-" + packageName + "-" + split[1]
 					newName := baseName + "/" + imgName
-					go func() {
-						defer wg.Done()
-						UploadCos(id, newName, v)
-					}()
-
+					wg.Add(1)
+					go UploadCos(id, newName, v, &wg)
 				}
-				wg.Wait()
+
 			}
 		}
+		wg.Wait()
 	}
 	return nil
 }
@@ -109,17 +125,49 @@ func NewCosClient() {
 	})
 }
 
-func UploadCos(id int, name, filePath string) {
+func UploadCos(id int, name, filePath string, wg *sync.WaitGroup) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("捕获到的错误：%s\n", r)
+		}
+	}()
+	defer wg.Done()
 	c := CosClient
+	filePath = strings.Replace(filePath, "https", "http", 1)
 	resp, err := http.Get(filePath)
 	if err != nil {
 		fmt.Println(err)
 	}
 	defer resp.Body.Close()
-	_, err = c.Object.Put(context.Background(), name, resp.Body, nil)
+
+	reader := bufio.NewReaderSize(resp.Body, 32*1024)
+
+	imgPath := "/data/image/"
+	fileName := path.Base(filePath)
+	file, err := os.Create(imgPath + fileName)
 	if err != nil {
-		sql := `update ws80_detail set img_pull_status = -1 where id = ?`
+		fmt.Println(err)
+	}
+	// 获得文件的writer对象
+	writer := bufio.NewWriter(file)
+
+	written, _ := io.Copy(writer, reader)
+	fmt.Printf("Total length: %d", written)
+
+	//本地上传
+	_, err = c.Object.PutFromFile(context.Background(), name, imgPath+fileName, nil)
+	if err != nil {
+		sql := `update ws80_detail_copy2 set img_pull_status = 0 where id = ?`
 		DB.Exec(sql, id)
 		fmt.Println(err)
+	} else {
+		sql := `update ws80_detail_copy2 set img_pull_status = 1 where id = ?`
+		DB.Exec(sql, id)
+		err := os.Remove(imgPath + fileName)
+		if err != nil {
+			fmt.Println("删除失败:", imgPath+fileName)
+		} else {
+			fmt.Println("删除成功:", imgPath+fileName)
+		}
 	}
 }

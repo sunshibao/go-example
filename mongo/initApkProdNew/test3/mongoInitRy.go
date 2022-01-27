@@ -189,8 +189,8 @@ func shell(mongodb *mgo.Session, database string, skip, limit int) (err error) {
 func insertDB(s MongoAppInfo, lang string, apkId int64) error {
 	v := s.Language[lang]
 	appDetails := s.Language[lang].Detail.AppDetails
-
-	newIcon := "http://18.177.149.123:8001/pic/img_" + s.UpdateTime.Format("2006-01-02") + "/" + s.Package
+	h, _ := time.ParseDuration("-1h")
+	newIcon := "http://18.177.149.123:8001/pic/img_" + s.UpdateTime.Add(8*h).Format("2006-01-02") + "/" + s.Package
 
 	if lang == "zh_CN" {
 		lang = "zh_cn"

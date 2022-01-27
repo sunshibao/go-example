@@ -43,11 +43,16 @@ type Data struct {
 	Added     string    `json:"added"`
 	Modified  string    `json:"modified"`
 	Updated   string    `json:"updated"`
+	Age       Age       `json:"age"`
 	Developer Developer `json:"developer"`
 	File      File      `json:"file"`
 	Media     Media     `json:"media"`
 	Stats     Stats     `json:"stats"`
 	Appcoins  Appcoins  `json:"appcoins"`
+}
+
+type Age struct {
+	Pegi string `json:"pegi"`
 }
 
 type Developer struct {
@@ -122,7 +127,7 @@ func main() {
 	s := 0
 	var err2 error
 	for {
-		if err2 == nil && skip < 100000 {
+		if err2 == nil && skip < 20000 {
 			skip = 0 + limit*s
 			err2 = GetApkList(skip, limit)
 			s++
@@ -152,6 +157,7 @@ type MysqlWs80Detail struct {
 	Added               string `gorm:"column:added" db:"added" json:"added" form:"added"`
 	Modified            string `gorm:"column:modified" db:"modified" json:"modified" form:"modified"`
 	Updated             string `gorm:"column:updated" db:"updated" json:"updated" form:"updated"`
+	AgePegi             string `gorm:"column:age_pegi" db:"age_pegi" json:"age_pegi" form:"age_pegi"`
 	DeveloperName       string `gorm:"column:developer_name" db:"developer_name" json:"developer_name" form:"developer_name"`
 	DeveloperWebsite    string `gorm:"column:developer_website" db:"developer_website" json:"developer_website" form:"developer_website"`
 	DeveloperEmail      string `gorm:"column:developer_email" db:"developer_email" json:"developer_email" form:"developer_email"`
@@ -177,7 +183,7 @@ type MysqlWs80Detail struct {
 }
 
 func GetApkList(skip, limit int) (err error) {
-	sql1 := "select ws_id,name,package,cate_type from ws78 limit ?,? "
+	sql1 := "select ws_id,name,package,cate_type from ws80 limit ?,? "
 	rows, err := DB.Raw(sql1, skip, limit).Rows()
 	if err != nil {
 		return err
@@ -255,6 +261,7 @@ func insertWsData(nodes Nodes, ws80Temp Ws80Temp) (err error) {
 		newData.Added,
 		newData.Modified,
 		newData.Updated,
+		newData.Age.Pegi,
 		newData.Developer.Name,
 		newData.Developer.Website,
 		newData.Developer.Email,

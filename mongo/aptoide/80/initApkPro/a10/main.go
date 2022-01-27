@@ -55,7 +55,7 @@ type Ws80Detail struct {
 var DB *sqlx.DB
 
 func main() {
-	start(0)
+	start(90000)
 }
 
 func start(id int) {
@@ -78,7 +78,7 @@ func start(id int) {
 	s := 0
 	var err2 error
 	for {
-		if err2 == nil && skip < 10000 {
+		if err2 == nil && skip < 18000 {
 			skip = 0 + limit*s
 			err2 = shell(id, skip, limit)
 			s++

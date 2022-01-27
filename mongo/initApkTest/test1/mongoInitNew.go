@@ -1,63 +1,119 @@
 package main
 
 import (
+	"bytes"
+	"encoding/hex"
 	"fmt"
+	"io/ioutil"
 	"log"
+	"net/http"
+	"regexp"
+	"strconv"
+	"sync"
+	"time"
+
+	"github.com/sunshibao/go-utils/util/gconv"
 
 	_ "github.com/go-sql-driver/mysql"
 
 	"strings"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/sunshibao/go-utils/util/gconv"
 	"gopkg.in/mgo.v2"
 )
 
+type BadgeForLegacyRating struct {
+	Major string
+}
+
+type Ds struct {
+	Low int `json:"low"`
+}
+
+type Dc struct {
+	Low int `json:"low"`
+}
+
+type AppInfo struct {
+	DeveloperName     string   `bson:"developerName"`
+	DeveloperEmail    string   `bson:"developerEmail"`
+	DeveloperWebsite  string   `bson:"developerWebsite"`
+	VersionCode       int      `bson:"versionCode"`
+	VersionString     string   `bson:"versionString"`
+	Permission        []string `bson:"permission"`
+	PackageName       string   `bson:"packageName"`
+	AppType           string   `bson:"appType"`
+	CategoryName      string   `bson:"categoryName"`
+	RecentChangesHtml string   `bson:"recentChangesHtml"`
+	InfoDownloadSize  Ds       `bson:"infoDownloadSize"`
+	DownloadCount     Dc       `bson:"downloadCount"`
+	InstallNotes      string   `bson:"installNotes"`
+	InAppProduct      string   `bson:"inAppProduct"`
+}
+
+type Annotations struct {
+	PrivacyPolicyUrl     string               `bson:"privacyPolicyUrl"`
+	BadgeForLegacyRating BadgeForLegacyRating `bson:"badgeForLegacyRating"`
+}
+
+type Detail struct {
+	AppDetails AppInfo `bson:"appDetails"`
+}
+
+type LangAppInfo struct {
+	ID                     string      `bson:"id"`
+	Type                   int         `bson:"type"`
+	CategoryId             string      `bson:"CategoryId"`
+	Title                  string      `bson:"title"`
+	Creator                string      `bson:"creator"`
+	DescriptionHtml        string      `bson:"descriptionHtml"`
+	Icon                   string      `bson:"icon"`
+	ImgList                []string    `bson:"imgList"`
+	Detail                 Detail      `bson:"details"`
+	ShareUrl               string      `bson:"shareUrl"`
+	Annotations            Annotations `bson:"annotations"`
+	DromotionalDescription string      `bson:"promotionalDescription"`
+}
+
 type MongoAppInfo struct {
-	PackageName         string   `bson:"package_name"`
-	PackageRlang        string   `bson:"packageRLang"`
-	CheckVersionCode    int      `bson:"check_version_code"`
-	CheckVersionName    string   `bson:"check_version_name"`
-	Version             string   `bson:"version"`
-	Description         string   `bson:"description"`
-	HeaderImage         string   `bson:"headerImage"`
-	Icon                string   `bson:"icon"`
-	Installs            string   `bson:"installs"`
-	MaxInstalls         int32    `bson:"maxInstalls"`
-	GenreId             string   `bson:"genreId"`
-	CheckUserPermission []string `bson:"check_user_permission"`
-	PrivacyPolicy       string   `bson:"privacyPolicy"`
-	CheckSize           int64    `bson:"check_size"`
-	Title               string   `bson:"title"`
-	Url                 string   `bson:"url"`
-	Size                string   `bson:"size"`
-	RecentChanges       string   `bson:"recentChanges"`
-	Developer           string   `bson:"developer"`
-	DeveloperEmail      string   `bson:"developerEmail"`
-	DeveloperWebsite    string   `bson:"developerWebsite"`
-	Screenshots         []string `bson:"screenshots"`
-	Suffix              string   `bson:"suffix"`
+	Package    string                 `bson:"package"`
+	Language   map[string]LangAppInfo `bson:"language"`
+	UpdateTime time.Time              `bson:"updateTime"`
+	CreateTime time.Time              `bson:"createTime"`
+	Status     string                 `bson:"status"`
 }
 
 var DB *sqlx.DB
+var realNum int
 
 func GetDatabase() *sqlx.DB {
 	return DB
 }
-
 func main() {
+	wg := sync.WaitGroup{}
+	for i := 0; i <= 8; i++ {
+		minId := i * 20000
+		wg.Add(1)
+		go func(minId int) {
+			defer wg.Done()
+			start(minId)
+		}(minId)
+	}
+	wg.Wait()
+}
 
-	host := "18.177.149.123:27017"
-	database := "nacos"
-	mongodb, err := mgo.Dial("mongodb://" + host)
+func start(minId int) {
+
+	database := "package"
+	mongodb, err := mgo.Dial("mongodb://admin:Droi*#2021@10.0.0.8:27017/?replicaSet=market")
 	if err != nil {
 		mongodb.Close()
 		return
 	}
 	defer mongodb.Close()
 
-	//uri := "usr_dev:6RqfI^G^QaFLh@eqk*Z@tcp(data-sql1.ry.cn:3306)/ry_market?charset=utf8mb4&parseTime=True&loc=Local"
-	uri := "root:tyd*#2016@tcp(192.168.1.152:3306)/ry_market?charset=utf8mb4&parseTime=True&loc=Local"
+	uri := "root:Droi*#2021@tcp(18.197.156.118:3306)/ry_market_examine?charset=utf8mb4&parseTime=True&loc=Local"
+	//uri := "root:@tcp(127.0.0.1:3306)/ry_market_examine?charset=utf8mb4&parseTime=True&loc=Local"
 
 	mysqldb, err := sqlx.Open("mysql", uri)
 	if err != nil {
@@ -67,12 +123,12 @@ func main() {
 	DB = mysqldb
 
 	skip := 0
-	limit := 1000
+	limit := 1
 	s := 0
 	var err2 error
 	for {
-		if err2 == nil && skip < 100000 {
-			skip = 0 + limit*s
+		if err2 == nil && skip < minId+20000 {
+			skip = minId + limit*s
 			err2 = shell(mongodb, database, skip, limit)
 			s++
 		} else {
@@ -81,120 +137,271 @@ func main() {
 	}
 	return
 
-	//shell(mongodb, database, skip, limit)
-
 }
 
-//10万
-//ObjectId("61755372275289742a211b8e")
 func shell(mongodb *mgo.Session, database string, skip, limit int) (err error) {
-	c := mongodb.DB(database).C("package_name")
+	//查询mongodb
+	c := mongodb.DB(database).C("info_220114")
 	var mongoAppInfos []MongoAppInfo
+
 	c.Find(nil).Sort("_id").Skip(skip).Limit(limit).All(&mongoAppInfos)
+
 	if len(mongoAppInfos) <= 0 {
+		fmt.Println("mongo没找到数据")
 		return err
 	}
-	for k, v := range mongoAppInfos {
+
+	for k, s := range mongoAppInfos {
+		v := LangAppInfo{}
+		appDetails := AppInfo{}
+
+		v = s.Language["en_US"]
+		appDetails = s.Language["en_US"].Detail.AppDetails
+
+		statusApk := gconv.Int(s.Status) //0下线 1正常
+		apkType := 0                     // 0应用 1 游戏
+		cateName := appDetails.CategoryName
+
+		if appDetails.AppType == "GAME" {
+			apkType = 1
+			cateName = "GAME_" + cateName
+		}
+
+		log.Printf("PackageName:%s-----num:%d\n", s.Package, k+skip)
 		//写入oz_apk表
-		log.Printf("PackageName:%s-----num:%d\n", v.PackageName, k+skip)
-		newIcon := "http://18.177.149.123:8001/resources/" + v.PackageName + "/icon_"
-		newImg := "http://18.177.149.123:8001/resources/" + v.PackageName + "/headerImage_"
-		downloadUrl := "http://18.177.149.123:8001/apk/" + v.Suffix
+		// 去标签
+		v.DescriptionHtml = TrimHtml(v.DescriptionHtml)
+		appDetails.RecentChangesHtml = TrimHtml(appDetails.RecentChangesHtml)
 
-		statusApk := 1
-		statusApkDesc := 1
-		statusImg := 1
+		// 过滤其他语言
+		fl := filterLanguage(v.DescriptionHtml)
 
-		if v.Suffix != "" {
-			index := strings.Contains(v.Suffix, ".apk")
-			if !index {
-				statusApk = -1
-				statusApkDesc = 2
-				statusImg = 0
-			}
+		if fl != true {
+			continue
 		}
 
-		if v.CheckVersionCode == 0 {
-			v.CheckVersionCode = gconv.Int(strings.Replace(v.Version, ".", "", 1))
-			v.CheckVersionName = v.Version
-			downloadUrl = v.Url
+		// 过滤敏感词
+		fs := filterSensitiveWord(v.DescriptionHtml)
+		if fs != true {
+			continue
+		}
+		gpUpdateTime := s.UpdateTime.Format("2006-01-02 15:04:05")
+		gpCreateTime := s.CreateTime.Format("2006-01-02 15:04:05")
+
+		if v.Annotations.BadgeForLegacyRating.Major != "" {
+			tempAgeLimit := strings.TrimRight(v.Annotations.BadgeForLegacyRating.Major, "+")
+			newAgeLimit := strings.TrimLeft(tempAgeLimit, "Rated for ")
+			v.Annotations.BadgeForLegacyRating.Major = newAgeLimit
 		}
 
-		fileSizeString := strings.Replace(v.Size, "M", "", -1)
-		size := gconv.Int64(fileSizeString) * 1024 * 1024
-		if v.CheckSize == 0 {
-			v.CheckSize = size
-		}
-
-		apkSql := "insert into 222_oz_apk (package_name,apk_name,version_code,version_name,download_url,company,developer_email,developer_website,file_size,download_num,apk_res_type,status,gp_down_url)values(?,?,?,?,?,?,?,?,?,?,?,?,?)"
-		appResult, err := DB.Exec(apkSql, v.PackageName, v.Title, v.CheckVersionCode, v.CheckVersionName, downloadUrl, v.Developer, v.DeveloperEmail, v.DeveloperWebsite, v.CheckSize, v.MaxInstalls, strings.ToLower(v.GenreId), statusApk, v.Url)
+		apkSql := "insert into oz_apk (package_name,apk_name,version_code,version_name,download_url,file_size,download_num,company,company_type,developer_email,developer_website,apk_res_type,apk_type,status,gp_down_url,age_limit,create_time,modify_time,apk_source_sign)values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+		appResult, err := DB.Exec(apkSql, s.Package, v.Title, appDetails.VersionCode, appDetails.VersionString, v.ShareUrl, appDetails.InfoDownloadSize.Low, appDetails.DownloadCount.Low, appDetails.DeveloperName, 1, appDetails.DeveloperEmail, appDetails.DeveloperWebsite, cateName, apkType, statusApk, v.ShareUrl, v.Annotations.BadgeForLegacyRating.Major, gpCreateTime, gpUpdateTime, 4)
 
 		if err != nil {
 			log.Printf("oz_apk err:%v", err)
 			continue
-		}
-		apkId, _ := appResult.LastInsertId()
+		} else {
 
-		//处理资源
-		img_url := strings.Replace(v.Icon, "https://play-lh.googleusercontent.com/", newImg, 1)
-		icon := strings.Replace(v.Icon, "https://play-lh.googleusercontent.com/", newIcon, 1)
-
-		//写入oz_image表
-		iconSql := "INSERT INTO 222_oz_image (`image_name`, `hd_image_url`, `nhd_image_url`,`image_type`,`language`,`status`) VALUES (?,?,?,?,?,?);"
-		iconResult, err := DB.Exec(iconSql, v.PackageName+"_icon", icon, icon, 50, v.PackageRlang, statusImg)
-
-		if err != nil {
-			log.Printf("oz_image 1 err:%v", err)
-			continue
-		}
-		iconId, _ := iconResult.LastInsertId()
-		//写入oz_image表
-		imgSql := "INSERT INTO 222_oz_image (`image_name`, `hd_image_url`, `nhd_image_url`,`image_type`,`language`,`status`) VALUES (?,?,?,?,?,?);"
-		_, err = DB.Exec(imgSql, v.PackageName+"_imgUrl", img_url, img_url, 50, v.PackageRlang, statusImg)
-
-		if err != nil {
-			log.Printf("oz_image 2 err:%v", err)
-			continue
-		}
-		permission := strings.Join(v.CheckUserPermission, ",")
-		apkDescSql := "insert into 222_oz_apk_desc (apk_id,package_name,apk_name_lang,description,app_permission_url,ver_upt_des,language,png_icon_id,jpg_icon_id,status)values(?,?,?,?,?,?,?,?,?,?)"
-		_, err = DB.Exec(apkDescSql, apkId, v.PackageName, v.Title, v.Description, v.PrivacyPolicy, v.RecentChanges, v.PackageRlang, iconId, iconId, statusApkDesc)
-
-		if err != nil {
-			log.Printf("oz_apk_desc err:%v", err)
-			continue
-		}
-
-		apkPerSql := "insert into 222_oz_apk_permission (apk_id,permission)values(?,?)"
-		_, err = DB.Exec(apkPerSql, apkId, permission)
-
-		if err != nil {
-			log.Printf("apkPerSql err:%v", err)
-			continue
-		}
-
-		for _, val := range v.Screenshots {
-			//写入oz_image表
-			newScree := "http://18.177.149.123:8001/resources/" + v.PackageName + "/screenshots_"
-			newScreeUrl := strings.Replace(val, "https://play-lh.googleusercontent.com/", newScree, 1)
-			scrSql := "INSERT INTO 222_oz_image (`image_name`, `hd_image_url`, `nhd_image_url`,`image_type`,`language`) VALUES (?,?,?,?,?);"
-			screResult, err := DB.Exec(scrSql, v.PackageName+"_Screenshots", newScreeUrl, newScreeUrl, 50, v.PackageRlang)
-
+			apkId, _ := appResult.LastInsertId()
+			// 添加权限
+			permission := strings.Join(appDetails.Permission, ",")
+			apkPerSql := "insert into oz_apk_permission (apk_id,permission)values(?,?)"
+			_, err = DB.Exec(apkPerSql, apkId, permission)
 			if err != nil {
-				log.Printf("oz_image 3 err:%v", err)
+				log.Printf("apkPerSql err:%v", err)
+				return err
+			}
+			err = insertDB(s, "en_US", apkId, gpCreateTime, gpUpdateTime) //俄语
+			if err != nil {
 				continue
 			}
+		}
 
-			//写入oz_apk_image表
-			imageId, _ := screResult.LastInsertId()
-			ssSql := "INSERT INTO 222_oz_apk_image (`apk_id`, `image_id`,`language`) VALUES (?,?,?);"
-			_, err = DB.Exec(ssSql, apkId, imageId, v.PackageRlang)
+	}
 
-			if err != nil {
-				log.Printf("oz_apk_image err:%v", err)
-				continue
-			}
+	return nil
+}
+
+// 多语言明细表插入
+func insertDB(s MongoAppInfo, lang string, apkId int64, gpCreateTime, gpUpdateTime string) error {
+	v := s.Language[lang]
+	appDetails := s.Language[lang].Detail.AppDetails
+
+	//h, _ := time.ParseDuration("-1h") 放到俄罗斯环境不用-8小时
+	newIcon := "http://apk-ry.tt286.com/app_img/img_" + s.UpdateTime.Format("2006-01-02") + "/" + s.Package
+
+	lang = "ru"
+
+	statusImg := 1
+	// 更换图片连接
+	v.Icon = strings.Replace(v.Icon, "https://play-lh.googleusercontent.com", newIcon, 1) + ".png"
+
+	lang = "ru"
+
+	//写入oz_image表
+	iconSql := "INSERT INTO oz_image (`image_name`, `hd_image_url`, `nhd_image_url`,`image_type`,`language`,`status`) VALUES (?,?,?,?,?,?);"
+	iconResult, err := DB.Exec(iconSql, s.Package+"_icon", v.Icon, v.Icon, 50, lang, statusImg)
+	if err != nil {
+		log.Printf("oz_image 1 err:%v", err)
+		return err
+	}
+
+	iconId, _ := iconResult.LastInsertId()
+
+	inAppProduct := 0
+	installNotes := 0
+	if appDetails.InstallNotes != "" {
+		installNotes = 1
+	}
+	if appDetails.InAppProduct != "" {
+		inAppProduct = 1
+	}
+
+	// 去标签
+	v.DescriptionHtml = TrimHtml(v.DescriptionHtml)
+	appDetails.RecentChangesHtml = TrimHtml(appDetails.RecentChangesHtml)
+
+	// 添加应用子表
+	permission := strings.Join(appDetails.Permission, ",")
+	apkDescSql := "insert into oz_apk_desc (apk_id,package_name,apk_name_lang,description,app_permission_desc,app_permission_url,ver_upt_des,language,png_icon_id,jpg_icon_id,in_app_product,install_notes,create_time,modify_time)values(?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+	_, err = DB.Exec(apkDescSql, apkId, s.Package, v.Title, v.DescriptionHtml, permission, v.Annotations.PrivacyPolicyUrl, appDetails.RecentChangesHtml, lang, iconId, iconId, inAppProduct, installNotes, gpCreateTime, gpUpdateTime)
+
+	if err != nil {
+		log.Printf("oz_apk_desc err:%v", err)
+		return err
+	}
+
+	//图片去重，写入oz_image ,oz_apk_image
+	//DelImage(apkId, newIcon, lang, s.Package, v.ImgList)
+	//添加图片
+	for _, val := range v.ImgList {
+		val = strings.Replace(val, "https://play-lh.googleusercontent.com", newIcon, 1) + ".png"
+		//写入oz_image表
+		scrSql := "INSERT INTO oz_image (`image_name`, `hd_image_url`, `nhd_image_url`,`image_type`,`language`) VALUES (?,?,?,?,?);"
+		screResult, err := DB.Exec(scrSql, s.Package+"_Screenshots", val, val, 50, lang)
+
+		if err != nil {
+			log.Printf("oz_image 3 err:%v", err)
+			return err
+		}
+		//写入oz_apk_image表
+		imageId, _ := screResult.LastInsertId()
+		ssSql := "INSERT INTO oz_apk_image (`apk_id`, `image_id`,`language`) VALUES (?,?,?);"
+		_, err = DB.Exec(ssSql, apkId, imageId, lang)
+		if err != nil {
+			log.Printf("oz_apk_image err:%v", err)
+			return err
 		}
 	}
 	return nil
+}
+
+// 图片去重
+func DelImage(apkId int64, newIcon, lang, package2 string, imageList []string) {
+	mm := make(map[string][]string) //去重
+	for _, v := range imageList {
+		if v == "" {
+			continue
+		}
+		v = strings.Replace(v, "https://play-lh.googleusercontent.com", newIcon, 1) + ".png"
+
+		res, err := http.Get(v)
+		if err != nil {
+			fmt.Println("A error occurred!")
+			continue
+		}
+		// defer后的为延时操作，通常用来释放相关变量
+		defer res.Body.Close()
+
+		pix, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			continue
+		}
+		fileCode := bytesToHexString(pix)
+
+		mm[fileCode] = append(mm[fileCode], v)
+
+	}
+	for _, vv := range mm {
+		for kkk, vvv := range vv {
+			if kkk == 0 {
+				//写入oz_image表
+				scrSql := "INSERT INTO oz_image (`image_name`, `hd_image_url`, `nhd_image_url`,`image_type`,`language`) VALUES (?,?,?,?,?);"
+				screResult, err := DB.Exec(scrSql, package2+"_Screenshots", vvv, vvv, 50, lang)
+
+				if err != nil {
+					log.Printf("oz_image 3 err:%v", err)
+					continue
+				}
+				//写入oz_apk_image表
+				imageId, _ := screResult.LastInsertId()
+				ssSql := "INSERT INTO oz_apk_image (`apk_id`, `image_id`,`language`) VALUES (?,?,?);"
+				_, err = DB.Exec(ssSql, apkId, imageId, lang)
+				if err != nil {
+					log.Printf("oz_apk_image err:%v", err)
+					continue
+				}
+			}
+		}
+	}
+}
+
+// 获取前面结果字节的二进制
+func bytesToHexString(src []byte) string {
+	res := bytes.Buffer{}
+	if src == nil || len(src) <= 0 {
+		return ""
+	}
+	temp := make([]byte, 0)
+	for _, v := range src {
+		sub := v & 0xFF
+		hv := hex.EncodeToString(append(temp, sub))
+		if len(hv) < 2 {
+			res.WriteString(strconv.FormatInt(int64(0), 10))
+		}
+		res.WriteString(hv)
+	}
+	return res.String()
+}
+
+// 过滤标签
+func TrimHtml(src string) string {
+	//将HTML标签全转换成小写
+	re, _ := regexp.Compile("\\<[\\S\\s]+?\\>")
+	src = re.ReplaceAllStringFunc(src, strings.ToLower)
+	//去除STYLE
+	re, _ = regexp.Compile("\\<style[\\S\\s]+?\\</style\\>")
+	src = re.ReplaceAllString(src, "")
+	//去除SCRIPT
+	re, _ = regexp.Compile("\\<script[\\S\\s]+?\\</script\\>")
+	src = re.ReplaceAllString(src, "")
+	//去除所有尖括号内的HTML代码，并换成换行符
+	re, _ = regexp.Compile("\\<[\\S\\s]+?\\>")
+	src = re.ReplaceAllString(src, "\n")
+	//去除连续的换行符
+	re, _ = regexp.Compile("\\s{2,}")
+	src = re.ReplaceAllString(src, "\n")
+	return strings.TrimSpace(src)
+}
+
+// 正则过滤语言 只留英语
+func filterLanguage(src string) bool {
+
+	var filter = regexp.MustCompile("^[a-zA-Z0-9\\s\\./:●~!@#$%^&*\\+\\-(){}|<>=✔【】:\\\"?'：；‘’“”，。,、\\]\\[`《》]+$").MatchString
+
+	return filter(src)
+}
+
+// 过滤敏感词
+func filterSensitiveWord(src string) bool {
+	sensitiveWord := []string{"Putin", "Xi Jinping", "communism", "Mao Zedong", "Shit", "blockhead", "Racist", "Nazi", "oppositionist", "Snout", "Muzzle", "Fucke", "stupid kakhah", "Bitch", "fuck", "fuck you", "Criminals and terrorists", "Muslims and terrorists", "Anti-Part", "Anti-Communist", "Smear China", "Slander the country", "Heroin", "pornography", "prostitute", "Sell oneself", "Pervert", "Asshole", "Yousuck", "kick ass", "bastard", "stupid jerk", "dick", "stupid idlot", "freak", "whore", "asshole", "Damn you", "fuck you", "Nerd", "bitch", "son of bitch", "suck for you SB", "Playing with fire ", "Pervert", "stupid", "idiot", "go to hell", "Shut up", "Bullshit", "God damn it", "SOB", "Drug dealing", "Dark we"}
+
+	for _, v := range sensitiveWord {
+		any := strings.Contains(src, v)
+		if any == true {
+			fmt.Println(v)
+			return false
+		}
+	}
+	return true
 }

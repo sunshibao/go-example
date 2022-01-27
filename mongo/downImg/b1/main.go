@@ -25,7 +25,7 @@ func GetDatabase() *gorm.DB {
 
 func main() {
 
-	uri := "root:tyd*#2016@tcp(192.168.1.152:3306)/ry_market_examine?charset=utf8mb4&parseTime=True&loc=Local"
+	uri := "root:@tcp(127.0.0.1:3306)/test?charset=utf8mb4&parseTime=True&loc=Local"
 
 	mysqldb, err := gorm.Open("mysql", uri)
 	if err != nil {
@@ -39,7 +39,7 @@ func main() {
 	s := 0
 	var err2 error
 	for {
-		if err2 == nil && skip < 10000 {
+		if err2 == nil && skip < 300 {
 			skip = 0 + limit*s
 			err2 = shell(skip, limit)
 			s++
@@ -62,19 +62,19 @@ type ImageInfo struct {
 
 //ObjectId("6177e34b275289742a6cf720")
 func shell(skip, limit int) (err error) {
-	imgPath := "/Users/sunshibao/Desktop/apkImage/"
-	imageUrl := ""
-	sql := "select hd_image_url from oz_image where temp_status3 = 3 limit ?,?"
-	DB.Raw(sql, skip, limit).Row().Scan(&imageUrl)
+	apkPath := "/Users/sunshibao/Desktop/apkPackage/"
+	apkUrl := ""
+	sql := "select apk_url from apk_url limit ?,?"
+	DB.Raw(sql, skip, limit).Row().Scan(&apkUrl)
 
-	if imageUrl == "" {
+	if apkUrl == "" {
 		return errors.New("无数据")
 	}
-	fmt.Printf("imageUrl:%s-----num:skip:%d \n", imageUrl, skip)
+	fmt.Printf("imageUrl:%s-----num:skip:%d \n", apkUrl, skip)
 
-	fileName := path.Base(imageUrl)
+	fileName := path.Base(apkUrl)
 
-	res, err := http.Get(imageUrl)
+	res, err := http.Get(apkUrl)
 	if err != nil {
 		fmt.Println("A error occurred!")
 		return
@@ -83,7 +83,7 @@ func shell(skip, limit int) (err error) {
 	// 获得get请求响应的reader对象
 	reader := bufio.NewReaderSize(res.Body, 32*1024)
 
-	file, err := os.Create(imgPath + fileName)
+	file, err := os.Create(apkPath + fileName)
 	if err != nil {
 		panic(err)
 	}

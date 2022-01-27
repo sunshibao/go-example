@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"sync"
 
 	"github.com/jmoiron/sqlx"
 
@@ -56,16 +55,7 @@ type Ws80Detail struct {
 var DB *sqlx.DB
 
 func main() {
-	wg := sync.WaitGroup{}
-	for i := 0; i <= 9; i++ {
-		wg.Add(1)
-		minId := i * 10000
-		go func(id int) {
-			defer wg.Done()
-			start(id)
-		}(minId)
-	}
-	wg.Wait()
+	start(0)
 }
 
 func start(id int) {
@@ -83,13 +73,13 @@ func start(id int) {
 		mysqldb.Close()
 	}
 	DB = mysqldb
-	skip := 0
+	skip := 7879
 	limit := 1
 	s := 0
 	var err2 error
 	for {
 		if err2 == nil && skip < 10000 {
-			skip = 0 + limit*s
+			skip = 7879 + limit*s
 			err2 = shell(id, skip, limit)
 			s++
 		} else {

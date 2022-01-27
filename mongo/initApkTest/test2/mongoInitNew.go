@@ -1,81 +1,177 @@
 package main
 
 import (
+	"bufio"
+	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"log"
+	"net/http"
+	"net/url"
+	"os"
+	"path"
+	"sync"
+	"time"
 
-	"gopkg.in/mgo.v2/bson"
+	"github.com/sunshibao/go-utils/util/gconv"
+	"github.com/tencentyun/cos-go-sdk-v5"
 
 	_ "github.com/go-sql-driver/mysql"
 
 	"strings"
 
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
+
 	"github.com/jmoiron/sqlx"
-	"github.com/sunshibao/go-utils/util/gconv"
-	"gopkg.in/mgo.v2"
 )
 
-type MongoAppInfo struct {
-	PackageName         string   `bson:"package_name"`
-	PackageRlang        string   `bson:"packageRLang"`
-	CheckVersionCode    int      `bson:"check_version_code"`
-	CheckVersionName    string   `bson:"check_version_name"`
-	Version             string   `bson:"version"`
-	Description         string   `bson:"description"`
-	HeaderImage         string   `bson:"headerImage"`
-	Icon                string   `bson:"icon"`
-	Installs            string   `bson:"installs"`
-	MaxInstalls         int32    `bson:"maxInstalls"`
-	GenreId             string   `bson:"genreId"`
-	CheckUserPermission []string `bson:"check_user_permission"`
-	PrivacyPolicy       string   `bson:"privacyPolicy"`
-	CheckSize           int64    `bson:"check_size"`
-	Title               string   `bson:"title"`
-	Url                 string   `bson:"url"`
-	Size                string   `bson:"size"`
-	RecentChanges       string   `bson:"recentChanges"`
-	Developer           string   `bson:"developer"`
-	DeveloperEmail      string   `bson:"developerEmail"`
-	DeveloperWebsite    string   `bson:"developerWebsite"`
-	Screenshots         []string `bson:"screenshots"`
-	Suffix              string   `bson:"suffix"`
+type Ws80Detail struct {
+	Info  Info  `json:"info"`
+	Nodes Nodes `json:"nodes"`
+}
+
+type Info struct {
+	Status string `json:"status"`
+}
+
+type Nodes struct {
+	Meta Meta `json:"meta"`
+}
+
+type Meta struct {
+	Data Data `json:"data"`
+}
+
+type Data struct {
+	ID        int       `json:"id"`
+	Name      string    `json:"name"`
+	Package   string    `json:"package"`
+	Size      int       `json:"size"`
+	Icon      string    `json:"icon"`
+	Graphic   string    `json:"graphic"`
+	Added     string    `json:"added"`
+	Modified  string    `json:"modified"`
+	Updated   string    `json:"updated"`
+	Age       Age       `json:"age"`
+	Developer Developer `json:"developer"`
+	File      File      `json:"file"`
+	Media     Media     `json:"media"`
+	Stats     Stats     `json:"stats"`
+	Appcoins  Appcoins  `json:"appcoins"`
+}
+
+type Age struct {
+	Pegi string `json:"pegi"`
+}
+
+type Developer struct {
+	ID      int    `json:"id"`
+	Name    string `json:"name"`
+	Website string `json:"website"`
+	Email   string `json:"email"`
+	Privacy string `json:"privacy"`
+}
+
+type File struct {
+	Vername         string   `json:"vername"`
+	Vercode         int      `json:"vercode"`
+	Md5Sum          string   `json:"md5sum"`
+	Filesize        int      `json:"filesize"`
+	Added           string   `json:"added"`
+	Path            string   `json:"path"`
+	Flags           Flags    `json:"flags"`
+	UsedFeatures    []string `json:"used_features"`
+	UsedPermissions []string `json:"used_permissions"`
+}
+
+type Flags struct {
+	Votes []Votes `json:"votes"`
+}
+
+type Votes struct {
+	Type  string `json:"type"`
+	Count int    `json:"count"`
+}
+
+type Media struct {
+	Keywords    []string      `json:"keywords"`
+	Description string        `json:"description"`
+	News        string        `json:"news"`
+	Screenshots []Screenshots `json:"screenshots"`
+}
+
+type Screenshots struct {
+	URL    string `json:"url"`
+	Height int    `json:"height"`
+	Width  int    `json:"width"`
+}
+
+type Stats struct {
+	Downloads  int `json:"downloads"`
+	Pdownloads int `json:"pdownloads"`
+}
+
+type Appcoins struct {
+	Advertising bool `json:"advertising"`
+	Billing     bool `json:"billing"`
 }
 
 var DB *sqlx.DB
-
-func GetDatabase() *sqlx.DB {
-	return DB
-}
+var CosClient *cos.Client
+var realNum int
 
 func main() {
+	//uri := "root:Droi*#2021@tcp(18.197.156.118:3306)/ry_market_examine?charset=utf8mb4&parseTime=True&loc=Local"
+	uri := "root:@tcp(127.0.0.1:3306)/test?charset=utf8mb4&parseTime=True&loc=Local"
 
-	host := "18.177.149.123:27017"
-	database := "nacos"
-	mongodb, err := mgo.Dial("mongodb://" + host)
-	if err != nil {
-		mongodb.Close()
-		return
-	}
-	defer mongodb.Close()
-
-	//uri := "usr_dev:6RqfI^G^QaFLh@eqk*Z@tcp(data-sql1.ry.cn:3306)/ry_market?charset=utf8mb4&parseTime=True&loc=Local"
-	uri := "root:tyd*#2016@tcp(192.168.1.152:3306)/ry_market?charset=utf8mb4&parseTime=True&loc=Local"
-
-	mysqldb, err := sqlx.Open("mysql", uri)
+	mysqldb, err := sqlx.Connect("mysql", uri)
 	if err != nil {
 		fmt.Println("mysql连接失败")
 		mysqldb.Close()
 	}
 	DB = mysqldb
 
+	//spec := "0 27 21 * * ?" //每天早上3：00：00执行一次
+	//c := cron.New()
+	//c.AddFunc(spec, gpCronFunc)
+	//c.Start()
+	//select {}
+
+	gpCronFunc()
+}
+
+func gpCronFunc() {
+	wg := sync.WaitGroup{}
+	for i := 0; i <= 5; i++ {
+		wg.Add(1)
+		minId := i * 20000
+		go func(id int) {
+			defer wg.Done()
+			start(id)
+		}(minId)
+	}
+	wg.Wait()
+	//start(0)
+}
+
+func start(minId int) {
+	defer func() {
+		if err := recover(); err != nil {
+			log.Println("UpLoadApkFile recover success")
+		}
+	}()
 	skip := 0
-	limit := 1000
+	limit := 1
 	s := 0
 	var err2 error
 	for {
-		if err2 == nil && skip < 100000 {
+		if err2 == nil && skip < 20000 {
 			skip = 0 + limit*s
-			err2 = shell(mongodb, database, skip, limit)
+			err2 = shell(minId, skip, limit)
 			s++
 		} else {
 			break
@@ -83,121 +179,148 @@ func main() {
 	}
 	return
 
-	//shell(mongodb, database, skip, limit)
-
 }
 
-//20万
-//ObjectId("6119da67a8a960c396fd4a36")
-//com.area_calculator.GPS_distance_calculator
-func shell(mongodb *mgo.Session, database string, skip, limit int) (err error) {
-	c := mongodb.DB(database).C("package_name")
-	var mongoAppInfos []MongoAppInfo
-	c.Find(bson.M{"_id": bson.M{"$gt": bson.ObjectIdHex("6119da67a8a960c396fd4a36")}}).Sort("_id").Skip(skip).Limit(limit).All(&mongoAppInfos)
-	if len(mongoAppInfos) <= 0 {
+type GpStruct struct {
+	ApkId       int    `json:"apk_id"`
+	PackageName string `json:"package_name"`
+}
+
+func shell(minId, skip, limit int) (err error) {
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Println("UpLoadApkFile recover success")
+		}
+	}()
+
+	NewCosClient()
+	var wsId int64
+	var packageName string
+	var updateTime string
+	gpSql := `select ws_id,package,modified from ws80_detail where id>? limit ?,? ;`
+	err = DB.QueryRow(gpSql, minId, skip, limit).Scan(&wsId, &packageName, &updateTime)
+
+	if err != nil || wsId == 0 {
+		log.Println("获取mysql数据失败:", err)
 		return err
 	}
-	for k, v := range mongoAppInfos {
-		//写入oz_apk表
-		log.Printf("PackageName:%s-----num:%d\n", v.PackageName, k+skip)
-		newIcon := "http://18.177.149.123:8001/resources/" + v.PackageName + "/icon_"
-		newImg := "http://18.177.149.123:8001/resources/" + v.PackageName + "/headerImage_"
-		downloadUrl := "http://18.177.149.123:8001/apk/" + v.Suffix
 
-		statusApk := 1
-		statusApkDesc := 1
-		statusImg := 1
+	url := fmt.Sprintf("https://ws75.aptoide.com/api/7/app/get/store_name=catappult/app_id=%d", wsId)
 
-		if v.Suffix != "" {
-			index := strings.Contains(v.Suffix, ".apk")
-			if !index {
-				statusApk = -1
-				statusApkDesc = 2
-				statusImg = 0
-			}
-		}
+	resp, err := http.Get(url)
 
-		if v.CheckVersionCode == 0 {
-			v.CheckVersionCode = gconv.Int(strings.Replace(v.Version, ".", "", 1))
-			v.CheckVersionName = v.Version
-			downloadUrl = v.Url
-		}
+	defer resp.Body.Close()
 
-		fileSizeString := strings.Replace(v.Size, "M", "", -1)
-		size := gconv.Int64(fileSizeString) * 1024 * 1024
-		if v.CheckSize == 0 {
-			v.CheckSize = size
-		}
+	body, err := ioutil.ReadAll(resp.Body)
+	var ws80 Ws80Detail
+	json.Unmarshal([]byte(string(body)), &ws80)
+	if err != nil {
+		log.Printf("获取ap数据失败2 err:%v", err)
+		return nil
+	}
 
-		apkSql := "insert into 222_oz_apk (package_name,apk_name,version_code,version_name,download_url,company,developer_email,developer_website,file_size,download_num,apk_res_type,status,gp_down_url)values(?,?,?,?,?,?,?,?,?,?,?,?,?)"
-		appResult, err := DB.Exec(apkSql, v.PackageName, v.Title, v.CheckVersionCode, v.CheckVersionName, downloadUrl, v.Developer, v.DeveloperEmail, v.DeveloperWebsite, v.CheckSize, v.MaxInstalls, strings.ToLower(v.GenreId), statusApk, v.Url)
+	if ws80.Info.Status == "FAIL" {
+		apkSql2 := "insert into ap_update (ws_id,package,status)values(?,?,?)"
+		DB.Exec(apkSql2, wsId, packageName, -1)
+		log.Printf("获取ap数据已下架 aptoideId:%d", wsId)
+		return nil
+	}
 
+	appDetails := ws80.Nodes.Meta.Data
+
+	apUpdateTime := appDetails.Modified
+	apCreateTime := appDetails.Added
+
+	if apUpdateTime > updateTime {
+		log.Printf("PackageName:%s, updateTime:%s,========== num: %d", appDetails.Package, apUpdateTime, skip)
+
+		apkSql := "insert into ap_update (ws_id,package,create_time,update_time)values(?,?,?,?)"
+
+		_, err := DB.Exec(apkSql, appDetails.ID, appDetails.Package, apCreateTime, apUpdateTime)
 		if err != nil {
-			log.Printf("oz_apk err:%v", err)
-			continue
+			log.Println("oz_apk insert fail:", err)
+			return nil
 		}
-		apkId, _ := appResult.LastInsertId()
+	} else {
+		log.Printf("PackageName:%s, updateTime:%s ==========", appDetails.Package, apUpdateTime)
+		return nil
+	}
 
-		//处理资源
-		img_url := strings.Replace(v.Icon, "https://play-lh.googleusercontent.com/", newImg, 1)
-		icon := strings.Replace(v.Icon, "https://play-lh.googleusercontent.com/", newIcon, 1)
+	return nil
+}
 
-		//写入oz_image表
-		iconSql := "INSERT INTO 222_oz_image (`image_name`, `hd_image_url`, `nhd_image_url`,`image_type`,`language`,`status`) VALUES (?,?,?,?,?,?);"
-		iconResult, err := DB.Exec(iconSql, v.PackageName+"_icon", icon, icon, 50, v.PackageRlang, statusImg)
+//fileType ====  aptoide_icon aptoide_img aptoide_apk
+func UpLoadImgFile(wsId int, packageName, fileUrl, fileType string) (pathUrl string, err error) {
+	if fileType != "" {
+		baseName := fileType + "/" + time.Now().Format("2006-01-02")
+		split := strings.Split(fileUrl, "catappult/")
+		iconName := gconv.String(wsId) + "-" + packageName + "-" + split[1]
+		newName := baseName + "/" + iconName
+		UploadCos(newName, fileUrl)
+		pathUrl = "http://apk-ry.tt286.com/" + newName
+	}
+	return pathUrl, nil
+}
 
+//fileType ====  aptoide_icon aptoide_img aptoide_apk
+func UpLoadApkFile(fileUrl, fileType string) (pathUrl string, err error) {
+	if fileType != "" {
+		baseName := fileType + "/" + time.Now().Format("2006-01-02")
+		split := strings.Split(fileUrl, "catappult/")
+		newName := baseName + "/" + split[1]
+		UploadCos(newName, fileUrl)
+		pathUrl = "http://apk-ry.tt286.com/" + newName
+	}
+	return pathUrl, nil
+}
+
+func NewCosClient() {
+	var secretid string = "AKIDjHZaKn0xc0GJ4ZnlRr0tVqtgCSR9alfK"
+	var secretkey string = "QaT5RVIo56qJVQ5TaQzHI2WjeKktmOkO"
+	var cosUrl string = "https://gp-image-1308128293.cos.eu-moscow.myqcloud.com"
+
+	u, _ := url.Parse(cosUrl)
+	b := &cos.BaseURL{BucketURL: u}
+	CosClient = cos.NewClient(b, &http.Client{
+		Transport: &cos.AuthorizationTransport{
+			SecretID:  secretid,
+			SecretKey: secretkey,
+		},
+	})
+}
+
+func UploadCos(name, filePath string) {
+	c := CosClient
+	filePath = strings.Replace(filePath, "https", "http", 1)
+	resp, err := http.Get(filePath)
+	if err != nil {
+		log.Println(err)
+	}
+	defer resp.Body.Close()
+	reader := bufio.NewReaderSize(resp.Body, 32*1024)
+
+	imgPath := "/data/service/cron/apFile/"
+
+	fileName := path.Base(filePath)
+	file, err := os.Create(imgPath + fileName)
+	if err != nil {
+		log.Printf("保存文件失败 err:%v", err)
+	}
+	_, err = io.Copy(file, reader)
+	if err != nil {
+		log.Println("下载文件到本地失败")
+	}
+
+	//本地上传
+	_, err = c.Object.PutFromFile(context.Background(), name, imgPath+fileName, nil)
+	if err != nil {
+		log.Println(err)
+	} else {
+		err := os.Remove(imgPath + fileName)
 		if err != nil {
-			log.Printf("oz_image 1 err:%v", err)
-			continue
-		}
-		iconId, _ := iconResult.LastInsertId()
-		//写入oz_image表
-		imgSql := "INSERT INTO 222_oz_image (`image_name`, `hd_image_url`, `nhd_image_url`,`image_type`,`language`,`status`) VALUES (?,?,?,?,?,?);"
-		_, err = DB.Exec(imgSql, v.PackageName+"_imgUrl", img_url, img_url, 50, v.PackageRlang, statusImg)
-
-		if err != nil {
-			log.Printf("oz_image 2 err:%v", err)
-			continue
-		}
-		permission := strings.Join(v.CheckUserPermission, ",")
-		apkDescSql := "insert into 222_oz_apk_desc (apk_id,package_name,apk_name_lang,description,app_permission_url,ver_upt_des,language,png_icon_id,jpg_icon_id,status)values(?,?,?,?,?,?,?,?,?,?)"
-		_, err = DB.Exec(apkDescSql, apkId, v.PackageName, v.Title, v.Description, v.PrivacyPolicy, v.RecentChanges, v.PackageRlang, iconId, iconId, statusApkDesc)
-
-		if err != nil {
-			log.Printf("oz_apk_desc err:%v", err)
-			continue
-		}
-
-		apkPerSql := "insert into 222_oz_apk_permission (apk_id,permission)values(?,?)"
-		_, err = DB.Exec(apkPerSql, apkId, permission)
-
-		if err != nil {
-			log.Printf("apkPerSql err:%v", err)
-			continue
-		}
-
-		for _, val := range v.Screenshots {
-			//写入oz_image表
-			newScree := "http://18.177.149.123:8001/resources/" + v.PackageName + "/screenshots_"
-			newScreeUrl := strings.Replace(val, "https://play-lh.googleusercontent.com/", newScree, 1)
-			scrSql := "INSERT INTO 222_oz_image (`image_name`, `hd_image_url`, `nhd_image_url`,`image_type`,`language`) VALUES (?,?,?,?,?);"
-			screResult, err := DB.Exec(scrSql, v.PackageName+"_Screenshots", newScreeUrl, newScreeUrl, 50, v.PackageRlang)
-
-			if err != nil {
-				log.Printf("oz_image 3 err:%v", err)
-				continue
-			}
-
-			//写入oz_apk_image表
-			imageId, _ := screResult.LastInsertId()
-			ssSql := "INSERT INTO 222_oz_apk_image (`apk_id`, `image_id`,`language`) VALUES (?,?,?);"
-			_, err = DB.Exec(ssSql, apkId, imageId, v.PackageRlang)
-
-			if err != nil {
-				log.Printf("oz_apk_image err:%v", err)
-				continue
-			}
+			log.Println("删除失败:", imgPath+fileName)
+		} else {
+			log.Println("删除成功:", imgPath+fileName)
 		}
 	}
-	return nil
 }

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 
 	"github.com/jinzhu/gorm"
@@ -12,7 +11,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-type Ws75 struct {
+type Ws80 struct {
 	Datalist Datalist `json:"datalist"`
 }
 
@@ -64,7 +63,7 @@ type Appcoins struct {
 	Billing     bool `json:"billing"`
 }
 
-type MysqlWs75 struct {
+type MysqlWs80 struct {
 	WsId            int    `gorm:"column:ws_id" db:"ws_id" json:"ws_id" form:"ws_id"`
 	Name            string `gorm:"column:name" db:"name" json:"name" form:"name"`
 	Package         string `gorm:"column:package" db:"package" json:"package" form:"package"`
@@ -105,42 +104,79 @@ func main() {
 	}
 	DB = mysqldb
 
-	//i := 0
-	//var wg = sync.WaitGroup{}
-	//for {
-	//	wg.Add(1)
-	//	go func(i int) {
-	//		getApkList(i * 25)
-	//		wg.Done()
-	//	}(i)
-	//	wg.Wait()
-	//	if i*25 > 70000 {
-	//		break
-	//	}
-	//	i++
-	//}
-	//return
-
-	getApkList(10)
+	skip := 0
+	limit := 1
+	s := 0
+	var err2 error
+	for {
+		if err2 == nil && skip < 64 {
+			skip = 0 + limit*s
+			err2 = GetApkCate(skip, limit)
+			s++
+		} else {
+			break
+		}
+	}
+	return
 
 }
 
-func getApkList(offset int) (err error) {
-	cateType := "software-libraries"
+func GetApkCate(skip, limit int) (err error) {
 
-	log.Printf("------offset:%d", offset)
-	url := fmt.Sprintf("https://ws75.aptoide.com/api/7/listApps/store_name=catappult/group_name=%s/offset=0", cateType)
-
-	resp, err := http.Get(url)
-
-	defer resp.Body.Close()
-
-	body, _ := ioutil.ReadAll(resp.Body)
-	var ws75 Ws75
-	json.Unmarshal([]byte(string(body)), &ws75)
-
-	insertWsData(ws75.Datalist, cateType)
+	sql1 := "select category from ws80_type where parent_id = 1 limit ?,?"
+	rows, err := DB.Raw(sql1, skip, limit).Rows()
+	if err != nil {
+		return err
+	} else {
+		for rows.Next() {
+			var category string
+			err := rows.Scan(&category)
+			if err != nil {
+				continue
+			}
+			fmt.Println("category:", category, "--------skip:", skip)
+			GetApkList(category)
+		}
+	}
 	return nil
+}
+
+var ApkListTotal int
+
+func GetApkList(category string) (err error) {
+	url := fmt.Sprintf("https://ws75.aptoide.com/api/7/listApps/store_name=catappult/group_name=%s/offset=0", category)
+	resp, err := http.Get(url)
+	defer resp.Body.Close()
+	body, _ := ioutil.ReadAll(resp.Body)
+	var ws80 Ws80
+	json.Unmarshal([]byte(string(body)), &ws80)
+	ApkListTotal = ws80.Datalist.Total
+
+	skip := 0
+	limit := 25
+	offset := 0
+	for {
+		offset = skip * limit
+		skip++
+		if offset < ApkListTotal {
+			GetListAll(category, offset)
+		} else {
+			break
+		}
+	}
+
+	return nil
+}
+
+func GetListAll(category string, offset int) {
+	url := fmt.Sprintf("https://ws75.aptoide.com/api/7/listApps/store_name=catappult/group_name=%s/offset=%d", category, offset)
+	resp, _ := http.Get(url)
+	defer resp.Body.Close()
+	body, _ := ioutil.ReadAll(resp.Body)
+	var ws80 Ws80
+	json.Unmarshal([]byte(string(body)), &ws80)
+	ApkListTotal = ws80.Datalist.Total
+	insertWsData(ws80.Datalist, category)
 }
 
 func insertWsData(dataList Datalist, cateType string) (err error) {
@@ -153,7 +189,7 @@ func insertWsData(dataList Datalist, cateType string) (err error) {
 		if s.Appcoins.Billing {
 			billing = 1
 		}
-		newMysql := MysqlWs75{
+		newMysql := MysqlWs80{
 			s.Id,
 			s.Name,
 			s.Package,
@@ -178,7 +214,7 @@ func insertWsData(dataList Datalist, cateType string) (err error) {
 			0,
 			cateType,
 		}
-		DB.Table("ws78").Create(newMysql)
+		DB.Table("ws80").Create(newMysql)
 	}
 	return nil
 }

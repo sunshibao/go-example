@@ -55,7 +55,7 @@ type Ws80Detail struct {
 var DB *sqlx.DB
 
 func main() {
-	start(0)
+	start(50000)
 }
 
 func start(id int) {

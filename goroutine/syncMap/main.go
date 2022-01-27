@@ -62,6 +62,8 @@ func (m *M) Set2(key, value string) {
 
 // Get ...
 func (m *M) Get(key string) string {
+	//m.lock.Lock()
+	//defer m.lock.Unlock()
 	return m.Map[key]
 }
 func TestMap() {
@@ -83,16 +85,19 @@ func TestMap() {
 func TestMap2() {
 	c := M{Map: make(map[string]string)}
 	wg := sync.WaitGroup{}
-	for i := 0; i < 21; i++ {
+	for i := 0; i < 210; i++ {
 		wg.Add(1)
 		go func(n int) {
 			k, v := strconv.Itoa(n), strconv.Itoa(n)
 			c.Set2(k, v)
-			log.Printf("k=:%v,v:=%v\n", k, c.Get(k))
+			//log.Printf("k=:%v,v:=%v\n", k, c.Get(k))
 			wg.Done()
 		}(i)
 	}
 	wg.Wait()
+	for k, v := range c.Map {
+		log.Printf("k=:%v,v:=%v\n", k, v)
+	}
 	log.Println("ok finished.")
 }
 
@@ -100,12 +105,12 @@ func TestMap2() {
 func TestSyncMap() {
 	var m sync.Map
 	wg := sync.WaitGroup{}
-	for i := 0; i < 21; i++ {
+	for i := 0; i < 210; i++ {
 		wg.Add(1)
 		go func(n int) {
 			k, v := strconv.Itoa(n), strconv.Itoa(n)
 			m.Store(k, v)
-			//load, _ := m.Load(k)                     // 第一种读sync.map方式
+			//load, _ := m.Load(k) // 第一种读sync.map方式
 			//log.Printf("k=:%v,v:=%v\n", k, load)
 			wg.Done()
 		}(i)
@@ -114,12 +119,37 @@ func TestSyncMap() {
 
 	m.Range(func(key, value interface{}) bool { // 第二种读sync.map方式
 		log.Printf("range k:%v,v=%v\n", key, value)
-		return true
+		return true // 如果打印一个return false
 	})
+}
+
+func TestSyncMapTemp() {
+	var m sync.Map
+	m.Store("aaa", 2)
+	m.Store("aaa", 222)
+	m.Store("bbb", 111)
+	m.Store("ccc", 222)
+	load, _ := m.Load("aaa")
+	fmt.Println(load)
+	value, _ := m.Load("ddd")
+	fmt.Println(value)
+	value2, _ := m.Load("bbb")
+	fmt.Println(value2)
+	value3, _ := m.Load("ccc")
+	fmt.Println(value3)
+	value4, _ := m.Load("ccc")
+	fmt.Println(value4)
+	m.Store("eee", 5555)
+
+	value5, _ := m.Load("ccc")
+	fmt.Println(value5)
+	value6, _ := m.Load("eee")
+	fmt.Println(value6)
 }
 
 func main() {
 	//TestMap()     // test13 因为map并不是并发安全的，给map写入的时候发生 fatal error: concurrent map writes
-	//TestMap2()    // test1 通过加锁方式，解决 map 并发安全
-	TestSyncMap() // test3  通过sync包的sync.Map 解决 map 并发安全
+	//TestMap2() // test1 通过加锁方式，解决 map 并发安全
+	//TestSyncMap() // test3  通过sync包的sync.Map 解决 map 并发安全
+	TestSyncMapTemp()
 }

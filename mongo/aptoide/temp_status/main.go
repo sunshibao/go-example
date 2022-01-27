@@ -1,14 +1,9 @@
 package main
 
 import (
-	"bufio"
-	"encoding/json"
 	"fmt"
-	"io"
-	"io/ioutil"
-	"net/http"
 	"os"
-	"path"
+	"strings"
 
 	"github.com/jinzhu/gorm"
 
@@ -83,83 +78,55 @@ type MysqlWs75Detail struct {
 }
 
 func GetApkList(skip, limit int) (err error) {
-	sql1 := "select ws_id,name,package,cate_type from ws78 limit ?,? "
+	sql1 := "select ws_id,down_url from ws78_detail limit ?,? "
 	rows, err := DB.Raw(sql1, skip, limit).Rows()
 	if err != nil {
 		return err
 	} else {
 		for rows.Next() {
-			var ws78Temp Ws78Temp
-			err := DB.ScanRows(rows, &ws78Temp)
+			wsId := 0
+			downUrl := ""
+			err := rows.Scan(&wsId, &downUrl)
 			if err != nil {
 				continue
 			}
-			fmt.Println("package:", ws78Temp.Package, "--------skip:", skip)
-			GetApkDetail(ws78Temp)
+			DownApk(downUrl, wsId)
 		}
 	}
 	return nil
 }
 
-func GetApkDetail(temp Ws78Temp) (err error) {
-
-	url := fmt.Sprintf("https://ws75.aptoide.com/api/7/app/get/store_name=catappult/app_id=%d", temp.WsID)
-
-	resp, err := http.Get(url)
-
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	var ws75 Ws75Detail
-	json.Unmarshal([]byte(string(body)), &ws75)
-	if err == nil {
-		insertWsData(ws75.Nodes, temp)
-	} else {
-		sql1 := "update ws78 set pull_status = 1 where ws_id = ? "
-		DB.Exec(sql1, temp.WsID)
-	}
-
-	return nil
-}
-
-func insertWsData(nodes Nodes, ws78Temp Ws78Temp) (err error) {
-	downUrl := nodes.Meta.Data.File.Path
-	newMysql := MysqlWs75Detail{
-		ws78Temp.WsID,
-		ws78Temp.Name,
-		ws78Temp.Package,
-		ws78Temp.CateType,
-		downUrl,
-	}
-	DB.Table("ws78_detail").Create(newMysql)
-	go DownApk(downUrl, ws78Temp.WsID)
-	return nil
-}
-
 func DownApk(apkUrl string, wsId int) {
-
-	apkPath := "/Users/sunshibao/Desktop/apkDown/"
-
-	fileName := path.Base(apkUrl)
-
-	res, err := http.Get(apkUrl)
+	split := strings.Split(apkUrl, "catappult/")
+	fmt.Println(split[0])
+	fmt.Println(split[1])
+	path := fmt.Sprintf("/Users/sunshibao/Desktop/apkDown2/%s", split[1])
+	b, err := PathExists(path)
 	if err != nil {
-		sql1 := "update ws78_detail set down_status = 1 where ws_id = ? "
+		fmt.Printf("PathExists(%s),err(%v)\n", path, err)
+	}
+	if b {
+		fmt.Printf("path %s 存在\n", path)
+	} else {
+		sql1 := "update ws78_detail set down_status = -1 where ws_id = ? "
 		DB.Exec(sql1, wsId)
-		fmt.Println("A error occurred!---", apkUrl)
-		return
 	}
-	defer res.Body.Close()
-	// 获得get请求响应的reader对象
-	reader := bufio.NewReaderSize(res.Body, 32*1024)
+}
 
-	file, err := os.Create(apkPath + fileName)
-	if err != nil {
-		panic(err)
+/*
+   判断文件或文件夹是否存在
+   如果返回的错误为nil,说明文件或文件夹存在
+   如果返回的错误类型使用os.IsNotExist()判断为true,说明文件或文件夹不存在
+   如果返回的错误为其它类型,则不确定是否在存在
+*/
+func PathExists(path string) (bool, error) {
+
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
 	}
-	// 获得文件的writer对象
-	writer := bufio.NewWriter(file)
-
-	written, _ := io.Copy(writer, reader)
-	fmt.Printf("Total length: %d", written)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
 }
