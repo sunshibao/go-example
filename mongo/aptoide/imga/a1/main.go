@@ -11,7 +11,6 @@ import (
 	"os"
 	"path"
 	"strings"
-	"sync"
 
 	"github.com/sunshibao/go-utils/util/gconv"
 
@@ -32,18 +31,18 @@ var CosClient *cos.Client
 var DB *sqlx.DB
 
 func main() {
-	wg := sync.WaitGroup{}
-	for i := 0; i < 9; i++ {
-		wg.Add(1)
-		go func(i int) {
-			defer wg.Done()
-			minId := i * 100000
-			start(minId)
-		}(i)
-	}
-	wg.Wait()
+	//wg := sync.WaitGroup{}
+	//for i := 0; i < 9; i++ {
+	//	wg.Add(1)
+	//	go func(i int) {
+	//		defer wg.Done()
+	//		minId := i * 100000
+	//		start(minId)
+	//	}(i)
+	//}
+	//wg.Wait()
 
-	//start(0)
+	start(0)
 }
 
 func start(minId int) {
@@ -64,7 +63,7 @@ func start(minId int) {
 	s := 0
 	var err2 error
 	for {
-		if err2 == nil && skip < 100000 {
+		if err2 == nil && skip < 3000 {
 			skip = limit * s
 			err2 = GetApkList(minId+skip, limit)
 			s++
@@ -92,7 +91,7 @@ func GetApkList(skip, limit int) (err error) {
 	}()
 
 	var jpgIconUrl string
-	sql3 := "select hd_image_url from oz_image where temp_status = 20 order by image_id limit ?,? "
+	sql3 := "select imgUrl from temp_img_url  limit ?,? "
 	err = DB.Get(&jpgIconUrl, sql3, skip, limit)
 	if err != nil {
 		log.Println(err)
@@ -115,7 +114,7 @@ func NewUploadImg(hdImgUrl string) {
 	updateNum++
 	index := strings.LastIndex(hdImgUrl, "-")
 	s := hdImgUrl[index+1:]
-	basePath := "http://pool.img.aptoide.com/catappult/"
+	basePath := "http://syncPool.img.aptoide.com/catappult/"
 	newUrl := basePath + s
 	newName := strings.Split(hdImgUrl, ".com/")
 	UploadCos(newName[1], newUrl)
@@ -145,7 +144,7 @@ func CheckImgUrl(filePath string) bool {
 	_, _, err = imageorient.Decode(res.Body)
 	if err != nil {
 		log.Println(err, "未识别的图片 filePath:", filePath)
-		delSql := "insert into  temp_img_url (imgUrl) values(?)"
+		delSql := "insert into  temp_img_url3 (imgUrl) values(?)"
 		DB.Exec(delSql, filePath)
 		return false
 	}

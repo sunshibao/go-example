@@ -110,7 +110,7 @@ func NewUploadImg(hdImgUrl string) {
 	index := strings.Split(hdImgUrl, "aptoide_apk/")
 	s := index[1]
 	//fmt.Println(index[0])
-	basePath := "https://pool.apk.aptoide.com/catappult/"
+	basePath := "https://syncPool.apk.aptoide.com/catappult/"
 	newUrl := basePath + s
 	newName := "aptoide_apk/" + s
 	UploadCos(newName, newUrl)

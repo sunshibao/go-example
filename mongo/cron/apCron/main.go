@@ -350,7 +350,7 @@ func UpLoadImgFile(wsId int, packageName, fileUrl, fileType string) (pathUrl str
 		iconName := gconv.String(wsId) + "-" + packageName + "-" + split[1]
 		newName := baseName + "/" + iconName
 		UploadCos(newName, fileUrl)
-		pathUrl = "http://apk-ry.tt286.com/" + newName
+		pathUrl = "http://apk-ry-tx.tt286.com/" + newName
 	}
 	return pathUrl, nil
 }
@@ -362,7 +362,7 @@ func UpLoadApkFile(fileUrl, fileType string) (pathUrl string, err error) {
 		split := strings.Split(fileUrl, "catappult/")
 		newName := baseName + "/" + split[1]
 		UploadCos(newName, fileUrl)
-		pathUrl = "http://apk-ry.tt286.com/" + newName
+		pathUrl = "http://apk-ry-tx.tt286.com/" + newName
 	}
 	return pathUrl, nil
 }

@@ -12,9 +12,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sunshibao/go-utils/util/gconv"
-
 	"github.com/robfig/cron"
+
+	"github.com/sunshibao/go-utils/util/gconv"
 
 	"github.com/disintegration/imageorient"
 	"gopkg.in/mgo.v2/bson"
@@ -90,6 +90,7 @@ type MongoAppInfo struct {
 	UpdateTime time.Time              `bson:"updateTime"`
 	CreateTime time.Time              `bson:"createTime"`
 	Status     string                 `bson:"status"`
+	PicHost    string                 `bson:"pic_host"`
 }
 
 var DB *sqlx.DB
@@ -99,6 +100,7 @@ var realNum int
 func main() {
 
 	mongodb, err := mgo.Dial("mongodb://admin:Droi*#2021@10.0.0.8:27017/?replicaSet=market")
+	//mongodb, err := mgo.Dial("mongodb://admin:Droi*#2021@43.131.92.130:27017/?replicaSet=market")
 	if err != nil {
 		mongodb.Close()
 		return
@@ -128,7 +130,7 @@ func main() {
 
 func gpCronFunc() {
 	wg := sync.WaitGroup{}
-	for i := 0; i <= 9; i++ {
+	for i := 0; i <= 15; i++ {
 		wg.Add(1)
 		minId := i * 50000
 		go func(id int) {
@@ -202,6 +204,10 @@ func shell(mongodb *mgo.Session, database string, minId, skip, limit int) (err e
 	}
 
 	for k, s := range mongoAppInfos {
+
+		if s.PicHost == "" {
+			continue
+		}
 		v := LangAppInfo{}
 		appDetails := AppInfo{}
 
@@ -288,7 +294,7 @@ func insertDB(s MongoAppInfo, lang string, apkId int64, gpCreateTime, gpUpdateTi
 	appDetails := s.Language[lang].Detail.AppDetails
 
 	//h, _ := time.ParseDuration("-1h") 放到俄罗斯环境不用-8小时
-	newIcon := "http://apk-ry.tt286.com/app_img/img_" + s.UpdateTime.Format("2006-01-02") + "/" + s.Package
+	newIcon := "http://apk-ry.tt286.com" + s.PicHost
 
 	lang = "ru"
 

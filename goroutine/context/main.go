@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// 通过cannel 主动关闭
+// Tip 通过cannel 主动关闭
 func ctxCancel() {
 	ctx, cancel := context.WithCancel(context.Background())
 	go func(ctx context.Context) {

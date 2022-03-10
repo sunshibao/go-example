@@ -109,7 +109,7 @@ func NewUploadImg(hdImgUrl string) {
 	updateNum++
 	index := strings.LastIndex(hdImgUrl, "-")
 	s := hdImgUrl[index+1:]
-	basePath := "http://pool.img.aptoide.com/catappult/"
+	basePath := "http://syncPool.img.aptoide.com/catappult/"
 	newUrl := basePath + s
 	newName := strings.Split(hdImgUrl, ".com/")
 	UploadCos(newName[1], newUrl)

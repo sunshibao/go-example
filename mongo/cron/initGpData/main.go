@@ -236,7 +236,7 @@ func insertDB(s MongoAppInfo, lang string, apkId int64, gpCreateTime, gpUpdateTi
 	appDetails := s.Language[lang].Detail.AppDetails
 
 	//h, _ := time.ParseDuration("-1h") 放到俄罗斯环境不用-8小时
-	newIcon := "http://apk-ry.tt286.com/app_img/img_" + s.UpdateTime.Format("2006-01-02") + "/" + s.Package
+	newIcon := "http://apk-ry-tx.tt286.com/app_img/img_" + s.UpdateTime.Format("2006-01-02") + "/" + s.Package
 
 	lang = "ru"
 
